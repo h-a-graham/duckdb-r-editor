@@ -1,0 +1,81 @@
+{
+  "name": "rsqledit",
+  "displayName": "R SQL Editor",
+  "description": "Enhanced SQL editing experience for SQL strings in R scripts with DuckDB integration",
+  "version": "0.1.0",
+  "publisher": "rsqledit",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "R",
+    "SQL",
+    "DuckDB",
+    "autocomplete",
+    "database"
+  ],
+  "activationEvents": [
+    "onLanguage:r"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "R SQL Editor",
+      "properties": {
+        "rsqledit.duckdbPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to DuckDB database file for schema introspection. Leave empty to auto-detect from R workspace."
+        },
+        "rsqledit.enableAutoComplete": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable SQL autocomplete in R strings"
+        },
+        "rsqledit.enableDiagnostics": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable SQL syntax validation"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "rsqledit.connectDatabase",
+        "title": "R SQL: Connect to DuckDB Database"
+      },
+      {
+        "command": "rsqledit.refreshSchema",
+        "title": "R SQL: Refresh Database Schema"
+      },
+      {
+        "command": "rsqledit.executeQuery",
+        "title": "R SQL: Execute Query at Cursor"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0",
+    "@vscode/vsce": "^2.19.0"
+  },
+  "dependencies": {
+    "duckdb": "^0.10.0"
+  }
+}
