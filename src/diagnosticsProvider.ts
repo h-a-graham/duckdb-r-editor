@@ -8,7 +8,7 @@ export class SQLDiagnosticsProvider implements vscode.CodeActionProvider {
     private diagnosticCollection: vscode.DiagnosticCollection;
 
     constructor() {
-        this.diagnosticCollection = vscode.languages.createDiagnosticCollection('rsqledit');
+        this.diagnosticCollection = vscode.languages.createDiagnosticCollection('duckdb-r-editor');
     }
 
     provideCodeActions(

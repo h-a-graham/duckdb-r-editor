@@ -57,7 +57,7 @@ Same as VSCode - Positron uses the same extension system.
 
 1. Link the extension:
    ```bash
-   ln -s $(pwd) ~/.vscode/extensions/rsqledit
+   ln -s $(pwd) ~/.vscode/extensions/duckdb-r-editor
    ```
 2. Reload VSCode
 3. The extension will be active for R files
@@ -68,9 +68,9 @@ Add to your VSCode/Positron settings:
 
 ```json
 {
-  "rsqledit.duckdbPath": "/path/to/your/database.duckdb",
-  "rsqledit.enableAutoComplete": true,
-  "rsqledit.enableDiagnostics": true
+  "duckdb-r-editor.duckdbPath": "/path/to/your/database.duckdb",
+  "duckdb-r-editor.enableAutoComplete": true,
+  "duckdb-r-editor.enableDiagnostics": true
 }
 ```
 

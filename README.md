@@ -21,7 +21,7 @@ Write DuckDB SQL with full IDE support - syntax highlighting, autocomplete, and 
 
 **Recommended:**
 - [DuckDB CLI](https://duckdb.org/docs/installation/) - Enables dynamic function discovery (500+ functions)
-- [Air formatter](https://github.com/r-lib/air) - For clean multi-line SQL formatting
+- [Air formatter](https://posit-dev.github.io/air/editor-vscode.html) - For clean multi-line SQL formatting
 
 ```r
 # Install R packages
@@ -33,7 +33,7 @@ install.packages(c("DBI", "duckdb"))
 ```bash
 # Clone and build
 git clone <repository-url>
-cd rsqledit
+cd duckdb-r-editor
 npm install
 npm run package
 
@@ -98,7 +98,7 @@ result <- dbGetQuery(con, "
 **Option 2: Settings (Auto-connect on startup)**
 ```json
 {
-  "rsqledit.duckdbPath": "/path/to/your/database.duckdb"
+  "duckdb-r-editor.duckdbPath": "/path/to/your/database.duckdb"
 }
 ```
 
@@ -266,16 +266,16 @@ result <- dbGetQuery(con, "
 ```json
 {
   // Path to DuckDB database (optional - auto-connects in Positron)
-  "rsqledit.duckdbPath": "/path/to/database.duckdb",
+  "duckdb-r-editor.duckdbPath": "/path/to/database.duckdb",
 
   // Enable advanced SQL highlighting (default: true, recommended)
-  "rsqledit.useSemanticHighlighting": true,
+  "duckdb-r-editor.useSemanticHighlighting": true,
 
   // Enable autocomplete (default: true)
-  "rsqledit.enableAutoComplete": true,
+  "duckdb-r-editor.enableAutoComplete": true,
 
   // Enable SQL validation (default: true)
-  "rsqledit.enableDiagnostics": true
+  "duckdb-r-editor.enableDiagnostics": true
 }
 ```
 
@@ -322,7 +322,7 @@ The extension uses an optimized semantic token provider for:
 Performance: ~1-3ms overhead (negligible). To disable:
 ```json
 {
-  "rsqledit.useSemanticHighlighting": false
+  "duckdb-r-editor.useSemanticHighlighting": false
 }
 ```
 
@@ -342,7 +342,7 @@ Same features available in both VS Code and Positron.
 
 ## Tips
 
-1. **Connect to your database first** - Use Command Palette or set `rsqledit.duckdbPath` in settings
+1. **Connect to your database first** - Use Command Palette or set `duckdb-r-editor.duckdbPath` in settings
 2. **Load extensions for their functions** - Use "Load DuckDB Extension" command or `LOAD` SQL command
 3. **Use file-based databases** for table/column autocomplete (in-memory databases not supported)
 4. **Type `table.`** to get column-specific suggestions

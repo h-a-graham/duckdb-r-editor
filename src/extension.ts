@@ -56,7 +56,7 @@ export async function activate(context: vscode.ExtensionContext) {
   documentCache = new DocumentCache();
 
   // Check if semantic highlighting is enabled (default: true)
-  const config = vscode.workspace.getConfiguration('rsqledit');
+  const config = vscode.workspace.getConfiguration('duckdb-r-editor');
   const useSemanticHighlighting = config.get<boolean>('useSemanticHighlighting', true);
 
   if (useSemanticHighlighting) {
@@ -96,7 +96,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // Register commands
   outputChannel.appendLine('Registering commands: connectDatabase, refreshSchema, executeQuery');
   const connectCommand = vscode.commands.registerCommand(
-    'rsqledit.connectDatabase',
+    'duckdb-r-editor.connectDatabase',
     async () => {
       const uri = await vscode.window.showOpenDialog({
         canSelectFiles: true,
@@ -115,12 +115,12 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   const refreshSchemaCommand = vscode.commands.registerCommand(
-    'rsqledit.refreshSchema',
+    'duckdb-r-editor.refreshSchema',
     refreshSchema
   );
 
   const loadExtensionCommand = vscode.commands.registerCommand(
-    'rsqledit.loadExtension',
+    'duckdb-r-editor.loadExtension',
     async () => {
       if (!cliProvider) {
         vscode.window.showWarningMessage('Extension loading requires DuckDB CLI');
@@ -153,7 +153,7 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   const executeQueryCommand = vscode.commands.registerCommand(
-    'rsqledit.executeQuery',
+    'duckdb-r-editor.executeQuery',
     async () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
@@ -271,7 +271,7 @@ async function refreshSchema(): Promise<void> {
  * Try to auto-connect to a database
  */
 async function tryAutoConnect() {
-  const config = vscode.workspace.getConfiguration('rsqledit');
+  const config = vscode.workspace.getConfiguration('duckdb-r-editor');
   let dbPath = config.get<string>('duckdbPath');
 
   // If no path configured, look for test.duckdb in workspace root

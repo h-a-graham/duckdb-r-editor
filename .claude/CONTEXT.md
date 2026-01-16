@@ -23,7 +23,7 @@
 
 3. **Connection Management**
    - Manual: Command Palette → "Connect to DuckDB Database"
-   - Auto: Set `rsqledit.duckdbPath` in settings
+   - Auto: Set `duckdb-r-editor.duckdbPath` in settings
    - Auto-detect: Place `test.duckdb` in workspace root
    - NO automatic R session discovery (despite what old docs said)
 

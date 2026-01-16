@@ -13,7 +13,7 @@ The R SQL Editor now has **native Positron integration**! When running in Positr
 
 ### Step 1: Launch Extension Development Host
 
-In Positron, with the rsqledit folder open:
+In Positron, with the duckdb-r-editor folder open:
 
 1. Press **F5** (or Run → Start Debugging)
 2. A new Positron window opens with "[Extension Development Host]" in the title
