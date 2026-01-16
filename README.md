@@ -1,5 +1,9 @@
 # DuckDB R Editor
 
+> [!WARNING]
+> This is a beta version of the DuckDB R Editor extension. It has also been **mostly** generated using Claude Code. Please use with caution and report any issues.
+
+
 **SQL syntax highlighting and intelligent autocomplete for DuckDB in R files.** Designed for use with Positron IDE and Air formatter.
 
 Write DuckDB SQL with full IDE support - syntax highlighting, autocomplete, and schema introspection - right inside R strings.
