@@ -58,7 +58,6 @@ The R SQL Editor extension now has **native Positron integration**, making it a 
    - Added environment detection on activation
    - Conditional initialization of schema provider (Positron vs VSCode)
    - Updated command handlers for dual-mode operation
-   - Added `executeQueryInPositron()` function
    - Improved disposal logic
 
 2. **`package.json`**
@@ -120,10 +119,6 @@ The R SQL Editor extension now has **native Positron integration**, making it a 
 **R SQL: Refresh Database Schema**
 - **Positron**: Queries R session for schema
 - **VSCode**: Refreshes Node.js connection schema
-
-**R SQL: Execute Query at Cursor**
-- **Positron**: Executes in R console
-- **VSCode**: Shows results in webview
 
 ## Compatibility
 
@@ -187,24 +182,20 @@ The R SQL Editor extension now has **native Positron integration**, making it a 
    - Visual connection management
    - Status indicators
 
-2. **Statement Range Provider**
-   - Better query boundary detection
-   - Improved "Execute Query" command
-
-3. **Configurable Auto-Refresh**
+2. **Configurable Auto-Refresh**
    - User-controlled interval
    - Manual mode option
 
 #### Medium Priority
-4. **Multiple Connection Support**
+3. **Multiple Connection Support**
    - Detect all DBI connections in R session
    - Let user choose which to use
 
-5. **Enhanced Type Mapping**
+4. **Enhanced Type Mapping**
    - Better R type → SQL type conversion
    - Preserve more type information
 
-6. **Result Preview Enhancement**
+5. **Result Preview Enhancement**
    - Use `positron.window.previewUrl()`
    - Better data frame visualization
 

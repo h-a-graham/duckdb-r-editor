@@ -100,17 +100,7 @@ Test the glue sections in test.R (lines 11-21):
 4. Move cursor inside `{min_mpg}` and press **Ctrl+Space**
 5. Should see R completions (the extension knows you're in R context)
 
-### Step 5: Test Query Execution
-
-**In Positron Mode:**
-
-1. Place cursor on line 6 (the complete query)
-2. Run: **R SQL: Execute Query at Cursor**
-3. The query executes in your R console
-4. Results appear as `.rsqledit_result` in your environment
-5. You should see the results printed in the console
-
-### Step 6: Test Schema Auto-Refresh
+### Step 5: Test Schema Auto-Refresh
 
 Add a new table in your R console:
 

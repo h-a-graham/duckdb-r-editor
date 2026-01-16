@@ -64,15 +64,17 @@ Same as VSCode - Positron uses the same extension system.
 
 ## Configuration
 
-Add to your VSCode/Positron settings:
+Optional settings you can add to `.vscode/settings.json` in your project:
 
 ```json
 {
-  "duckdb-r-editor.duckdbPath": "/path/to/your/database.duckdb",
   "duckdb-r-editor.enableAutoComplete": true,
-  "duckdb-r-editor.enableDiagnostics": true
+  "duckdb-r-editor.enableDiagnostics": true,
+  "duckdb-r-editor.useSemanticHighlighting": true
 }
 ```
+
+**Note:** Connect to databases manually via Command Palette - no auto-connect configuration needed.
 
 ## Troubleshooting
 
