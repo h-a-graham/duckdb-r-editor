@@ -1,16 +1,14 @@
 import * as vscode from 'vscode';
 import { SQLCompletionProvider } from './completionProvider';
-import { DuckDBConnectionManager } from './duckdbConnection';
-import { DuckDBCliProvider } from './duckdbCliProvider';
+import { PositronSchemaProvider } from './positronSchemaProvider';
+import { DuckDBFunctionProvider } from './functionProvider';
 import { SQLDiagnosticsProvider } from './diagnosticsProvider';
-import { SchemaProvider } from './types';
 import { DocumentCache } from './documentCache';
 import { SQLSemanticTokenProvider } from './semanticTokenProvider';
 import { tryAcquirePositronApi } from '@posit-dev/positron';
 
-let cliProvider: DuckDBCliProvider | undefined;
-let connectionManager: DuckDBConnectionManager | undefined;
-let schemaProvider: SchemaProvider;
+let schemaProvider: PositronSchemaProvider | undefined;
+let functionProvider: DuckDBFunctionProvider | undefined;
 let diagnosticsProvider: SQLDiagnosticsProvider;
 let outputChannel: vscode.OutputChannel;
 let documentCache: DocumentCache;
@@ -18,39 +16,37 @@ let semanticTokenProvider: SQLSemanticTokenProvider;
 
 export async function activate(context: vscode.ExtensionContext) {
   // Create output channel for logging
-  outputChannel = vscode.window.createOutputChannel('R SQL Editor');
+  outputChannel = vscode.window.createOutputChannel('DuckDB R Editor');
   context.subscriptions.push(outputChannel);
 
-  outputChannel.appendLine('R SQL Editor extension is now active');
+  outputChannel.appendLine('='.repeat(60));
+  outputChannel.appendLine('DuckDB R Editor - Positron Edition');
+  outputChannel.appendLine('='.repeat(60));
 
-  // Try to acquire Positron API (for R session integration)
+  // Check for Positron API (REQUIRED)
   const positronApi = tryAcquirePositronApi();
-  if (positronApi) {
-    outputChannel.appendLine('✓ Positron API acquired - R session integration available');
-  } else {
-    outputChannel.appendLine('ℹ️  Positron API not available (running in VS Code or older Positron)');
+  if (!positronApi) {
+    const errorMsg = 'DuckDB R Editor requires Positron IDE. This extension will not work in VS Code.';
+    outputChannel.appendLine('✗ ' + errorMsg);
+    vscode.window.showErrorMessage(errorMsg);
+    return;
   }
 
-  // Try to use DuckDB CLI first (preferred method - more dynamic and flexible)
-  outputChannel.appendLine('Checking for DuckDB CLI...');
-  cliProvider = new DuckDBCliProvider(positronApi);
+  outputChannel.appendLine('✓ Positron API detected');
 
-  const cliAvailable = await cliProvider.isDuckDBCliAvailable();
+  // Initialize function provider (Node.js DuckDB for function discovery)
+  outputChannel.appendLine('Initializing function provider...');
+  functionProvider = new DuckDBFunctionProvider();
+  await functionProvider.refreshFunctions();
+  const funcCount = functionProvider.getAllFunctions().length;
+  outputChannel.appendLine(`✓ Discovered ${funcCount} DuckDB functions`);
+  context.subscriptions.push(functionProvider);
 
-  if (cliAvailable) {
-    outputChannel.appendLine('✓ DuckDB CLI detected - using dynamic introspection mode');
-    outputChannel.appendLine('  This mode automatically discovers ALL DuckDB functions, including extensions!');
-    schemaProvider = cliProvider as SchemaProvider;
-    context.subscriptions.push(cliProvider!);
-  } else {
-    outputChannel.appendLine('✗ DuckDB CLI not found - falling back to Node.js bindings');
-    outputChannel.appendLine('  Install DuckDB CLI for better experience: https://duckdb.org/docs/installation/');
-    connectionManager = new DuckDBConnectionManager();
-    schemaProvider = connectionManager;
-    context.subscriptions.push(connectionManager);
-  }
-
-  outputChannel.appendLine('ℹ️  Use "DuckDB R Editor: Connect to DuckDB Database" command to connect to a database');
+  // Schema provider will be initialized when user connects to a database
+  outputChannel.appendLine('');
+  outputChannel.appendLine('Ready! Use "DuckDB R Editor: Connect to DuckDB Database" to get started.');
+  outputChannel.appendLine('Note: You must have an active R DuckDB connection in your session.');
+  outputChannel.appendLine('='.repeat(60));
 
   // Initialize diagnostics provider
   outputChannel.appendLine('Initializing diagnostics provider');
@@ -83,11 +79,22 @@ export async function activate(context: vscode.ExtensionContext) {
     outputChannel.appendLine('  Note: Limited support for Air formatter multi-line strings');
   }
 
+  // Combined provider adapter for completion (schema + functions)
+  const combinedProvider = {
+    getTableNames: () => schemaProvider?.getTableNames() || [],
+    getColumns: (tableName: string) => schemaProvider?.getColumns(tableName) || [],
+    getAllColumns: () => schemaProvider?.getAllColumns() || [],
+    getFunctionNames: () => functionProvider?.getFunctionNames() || [],
+    getFunction: (name: string) => functionProvider?.getFunction(name),
+    getAllFunctions: () => functionProvider?.getAllFunctions() || [],
+    isConnected: () => schemaProvider?.isConnected() || false
+  };
+
   // Register completion provider for R files
   outputChannel.appendLine('Registering completion provider for R files');
   const completionProvider = vscode.languages.registerCompletionItemProvider(
     { language: 'r', scheme: 'file' },
-    new SQLCompletionProvider(schemaProvider as any),
+    new SQLCompletionProvider(combinedProvider as any),
     '.', // Trigger on dot for table.column
     '(', // Trigger on function call
     ' ', // Trigger on space
@@ -122,21 +129,14 @@ export async function activate(context: vscode.ExtensionContext) {
   const disconnectCommand = vscode.commands.registerCommand(
     'duckdb-r-editor.disconnectDatabase',
     async () => {
-      if (!schemaProvider.isConnected()) {
+      if (!schemaProvider || !schemaProvider.isConnected()) {
         vscode.window.showInformationMessage('No active database connection');
         return;
       }
 
-      // Disconnect by disposing the providers
-      if (cliProvider) {
-        cliProvider.dispose();
-        cliProvider = new DuckDBCliProvider(positronApi);
-        schemaProvider = cliProvider;
-      } else if (connectionManager) {
-        connectionManager.dispose();
-        connectionManager = new DuckDBConnectionManager();
-        schemaProvider = connectionManager;
-      }
+      // Disconnect by disposing the schema provider
+      schemaProvider.dispose();
+      schemaProvider = undefined;
 
       outputChannel.appendLine('✓ Disconnected from database');
       vscode.window.showInformationMessage('Disconnected from database');
@@ -151,8 +151,8 @@ export async function activate(context: vscode.ExtensionContext) {
   const loadExtensionCommand = vscode.commands.registerCommand(
     'duckdb-r-editor.loadExtension',
     async () => {
-      if (!cliProvider) {
-        vscode.window.showWarningMessage('Extension loading requires DuckDB CLI');
+      if (!functionProvider) {
+        vscode.window.showErrorMessage('Function provider not initialized');
         return;
       }
 
@@ -169,8 +169,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
       if (extensionName) {
         try {
-          await cliProvider.loadExtensionForAutocomplete(extensionName.trim());
-          const funcCount = cliProvider.getAllFunctions?.()?.length || 0;
+          await functionProvider.loadExtension(extensionName.trim());
+          const funcCount = functionProvider.getAllFunctions().length;
           vscode.window.showInformationMessage(
             `✓ Extension '${extensionName}' loaded! ${funcCount} functions now available for autocomplete.`
           );
@@ -227,60 +227,43 @@ export async function activate(context: vscode.ExtensionContext) {
 
 /**
  * Connect to a database with consistent messaging
+ * Creates a new Positron schema provider and queries R session
  */
 async function connectToDatabase(dbPath: string): Promise<void> {
+  const positronApi = tryAcquirePositronApi();
+  if (!positronApi) {
+    vscode.window.showErrorMessage('Positron API not available. This extension requires Positron IDE.');
+    return;
+  }
+
   try {
-    if (cliProvider) {
-      await cliProvider.connect(dbPath);
-      const tableCount = schemaProvider.getTableNames().length;
-      const funcCount = cliProvider.getAllFunctions?.()?.length || 0;
+    // Create new schema provider for this connection
+    schemaProvider = new PositronSchemaProvider(positronApi);
+    await schemaProvider.connect(dbPath);
 
-      if (tableCount === 0) {
-        vscode.window.showWarningMessage(
-          `Connected to ${dbPath} but found 0 tables. The database may be locked by another process (like an R session). Try disconnecting from other connections first.`
-        );
-        outputChannel.appendLine(`⚠️  Connected but found 0 tables - database may be locked`);
-      } else {
-        vscode.window.showInformationMessage(
-          `Connected to ${dbPath}\n${tableCount} tables, ${funcCount} functions discovered`
-        );
-        outputChannel.appendLine(`✓ Connected: ${tableCount} tables, ${funcCount} functions`);
-      }
+    const tableCount = schemaProvider.getTableNames().length;
+    const funcCount = functionProvider?.getAllFunctions().length || 0;
 
-      // Debug: Log table and column details
-      const tables = schemaProvider.getTableNames();
-      for (const tableName of tables) {
-        const columns = schemaProvider.getColumns(tableName);
-        outputChannel.appendLine(`  Table: ${tableName} (${columns.length} columns)`);
-        columns.forEach(col => {
-          outputChannel.appendLine(`    - ${col.name}: ${col.type}`);
-        });
-      }
-    } else if (connectionManager) {
-      await connectionManager.connect(dbPath);
-      const tableCount = schemaProvider.getTableNames().length;
+    if (tableCount === 0) {
+      vscode.window.showWarningMessage(
+        `Connected to ${dbPath} but found 0 tables. Make sure you have an active R DuckDB connection with tables.`
+      );
+      outputChannel.appendLine(`⚠️  Connected but found 0 tables - check R session`);
+    } else {
+      vscode.window.showInformationMessage(
+        `Connected to ${dbPath}\n${tableCount} tables from R session, ${funcCount} functions available`
+      );
+      outputChannel.appendLine(`✓ Connected: ${tableCount} tables (from R), ${funcCount} functions`);
+    }
 
-      if (tableCount === 0) {
-        vscode.window.showWarningMessage(
-          `Connected to ${dbPath} but found 0 tables. The database may be locked by another process (like an R session). Try disconnecting from other connections first.`
-        );
-        outputChannel.appendLine(`⚠️  Connected but found 0 tables - database may be locked`);
-      } else {
-        vscode.window.showInformationMessage(
-          `Connected to ${dbPath}\n${tableCount} tables`
-        );
-        outputChannel.appendLine(`✓ Connected: ${tableCount} tables`);
-      }
-
-      // Debug: Log table and column details
-      const tables = schemaProvider.getTableNames();
-      for (const tableName of tables) {
-        const columns = schemaProvider.getColumns(tableName);
-        outputChannel.appendLine(`  Table: ${tableName} (${columns.length} columns)`);
-        columns.forEach(col => {
-          outputChannel.appendLine(`    - ${col.name}: ${col.type}`);
-        });
-      }
+    // Debug: Log table and column details
+    const tables = schemaProvider.getTableNames();
+    for (const tableName of tables) {
+      const columns = schemaProvider.getColumns(tableName);
+      outputChannel.appendLine(`  Table: ${tableName} (${columns.length} columns)`);
+      columns.forEach(col => {
+        outputChannel.appendLine(`    - ${col.name}: ${col.type}`);
+      });
     }
   } catch (err: any) {
     outputChannel.appendLine(`✗ Connection failed: ${err.message}`);
@@ -293,24 +276,20 @@ async function connectToDatabase(dbPath: string): Promise<void> {
  * Refresh schema and functions with consistent messaging
  */
 async function refreshSchema(): Promise<void> {
+  if (!schemaProvider) {
+    vscode.window.showWarningMessage('No active database connection. Connect to a database first.');
+    return;
+  }
+
   try {
-    if (cliProvider) {
-      await cliProvider.refreshSchema();
-      await cliProvider.refreshFunctions();
-      const tableCount = cliProvider.getTableNames().length;
-      const funcCount = cliProvider.getAllFunctions?.()?.length || 0;
-      vscode.window.showInformationMessage(
-        `Schema refreshed: ${tableCount} tables, ${funcCount} functions`
-      );
-      outputChannel.appendLine(`✓ Refreshed: ${tableCount} tables, ${funcCount} functions`);
-    } else if (connectionManager) {
-      await connectionManager.refreshSchema();
-      const tableCount = connectionManager.getTableNames().length;
-      vscode.window.showInformationMessage(
-        `Schema refreshed: ${tableCount} tables`
-      );
-      outputChannel.appendLine(`✓ Refreshed: ${tableCount} tables`);
-    }
+    await schemaProvider.refreshSchema();
+    const tableCount = schemaProvider.getTableNames().length;
+    const funcCount = functionProvider?.getAllFunctions().length || 0;
+
+    vscode.window.showInformationMessage(
+      `Schema refreshed: ${tableCount} tables (from R session), ${funcCount} functions`
+    );
+    outputChannel.appendLine(`✓ Refreshed: ${tableCount} tables, ${funcCount} functions`);
   } catch (err: any) {
     outputChannel.appendLine(`✗ Refresh failed: ${err.message}`);
     vscode.window.showErrorMessage(`Failed to refresh schema: ${err.message}`);
@@ -319,10 +298,10 @@ async function refreshSchema(): Promise<void> {
 }
 
 export function deactivate() {
-  if (cliProvider) {
-    cliProvider.dispose();
+  if (schemaProvider) {
+    schemaProvider.dispose();
   }
-  if (connectionManager) {
-    connectionManager.dispose();
+  if (functionProvider) {
+    functionProvider.dispose();
   }
 }
