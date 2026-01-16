@@ -45,38 +45,29 @@ npm run package
 
 ## Why Use This Extension?
 
+<table>
+<tr>
+<td width="50%">
+
 ### Before: No SQL Support in R Strings
-```r
-result <- dbGetQuery(con, "
-  SELECT customer_id, SUM(amount)
-  FROM orders WHERE date > '2024-01-01'
-  GROUP BY customer_id
-")
-```
-❌ No syntax highlighting
+<img src="images/syntax-highlight-before.png" alt="Before - No SQL highlighting" width="100%">
 
-❌ No autocomplete
-
-❌ No error detection
+</td>
+<td width="50%">
 
 ### After: Full SQL IDE Features
+<img src="images/syntax-highlight-after.png" alt="After - Full SQL highlighting" width="100%">
 
-**With syntax highlighting:**
+</td>
+</tr>
+</table>
 
-<pre>
-result <- dbGetQuery(con, "
-  <span style="color: #569CD6">SELECT</span> customer_id, <span style="color: #DCDCAA">SUM</span>(amount)
-  <span style="color: #569CD6">FROM</span> <span style="color: #4EC9B0">orders</span> <span style="color: #569CD6">WHERE</span> date > <span style="color: #CE9178">'2024-01-01'</span>
-  <span style="color: #569CD6">GROUP BY</span> customer_id
-")
-</pre>
-
-**Auto complete and syntax highlighting for:**
-- <span style="color: #569CD6">**SQL keywords**</span> (SELECT, FROM, WHERE)
-- <span style="color: #DCDCAA">**Functions**</span> (SUM, COUNT, DATE_TRUNC)
-- <span style="color: #4EC9B0">**Table names**</span> (orders, customers)
-- **Column names** (customer_id, amount)
-- <span style="color: #CE9178">**String literals**</span>
+**What you get:**
+- 🔵 **SQL keywords** - SELECT, FROM, WHERE, JOIN, etc.
+- 🟡 **Functions** - SUM(), COUNT(), DATE_TRUNC(), 500+ DuckDB functions
+- 🔷 **Table names** - Context-aware after FROM/JOIN
+- 📋 **Column names** - Smart suggestions based on schema
+- 🟠 **Literals** - Strings, numbers, dates
 
 ✅ Autocomplete for tables, columns, and 500+ DuckDB functions
 
@@ -149,22 +140,26 @@ result <- dbGetQuery(con, "
 ")
 ```
 
-**What you see as you type:**
+![Autocomplete Demo](images/autocomplete-demo.gif)
+<!-- TODO: Replace with actual GIF/screenshot showing autocomplete in action -->
+<!-- GIF should show: typing in dbGetQuery() and seeing autocomplete suggestions appear -->
 
-<pre>
+**What you get as you type:**
+
+```r
 result <- dbGetQuery(con, "
-  <span style="color: #569CD6">SELECT</span>
-    customer_id,                             <i>← Column (autocompleted from schema)</i>
-    <span style="color: #DCDCAA">DATE_TRUNC</span>(<span style="color: #CE9178">'month'</span>, order_date) <span style="color: #569CD6">AS</span> month,  <i>← Function (with signature in autocomplete)</i>
-    <span style="color: #DCDCAA">SUM</span>(amount) <span style="color: #569CD6">AS</span> total
-  <span style="color: #569CD6">FROM</span> <span style="color: #4EC9B0">orders</span>                                   <i>← Table (autocompleted)</i>
-  <span style="color: #569CD6">WHERE</span> order_date > <span style="color: #DCDCAA">CURRENT_DATE</span> - <span style="color: #569CD6">INTERVAL</span> <span style="color: #CE9178">'30 days'</span>
-  <span style="color: #569CD6">GROUP BY</span> customer_id, month
-  <span style="color: #569CD6">ORDER BY</span> total <span style="color: #569CD6">DESC</span>
+  SELECT
+    customer_id,                                      # ← Column (from schema)
+    DATE_TRUNC('month', order_date) AS month,        # ← Function (with signature)
+    SUM(amount) AS total                             # ← Aggregate function
+  FROM orders                                         # ← Table (autocompleted)
+  WHERE order_date > CURRENT_DATE - INTERVAL '30 days'
+  GROUP BY customer_id, month
+  ORDER BY total DESC
 ")
-</pre>
+```
 
-<span style="color: #569CD6">**Keywords**</span> | <span style="color: #DCDCAA">**Functions**</span> | <span style="color: #4EC9B0">**Tables**</span> | **Columns** | <span style="color: #CE9178">**Strings**</span>
+🔵 **Keywords** | 🟡 **Functions** | 🔷 **Tables** | 📋 **Columns** | 🟠 **Strings**
 
 ---
 
