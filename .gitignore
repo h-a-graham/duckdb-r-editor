@@ -9,3 +9,4 @@ out
 
 # R/duckdb scratch files
 R-test-files/*
+*.duckdb
