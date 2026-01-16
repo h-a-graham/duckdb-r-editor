@@ -347,6 +347,25 @@ Same features available in both VS Code and Positron.
 
 ---
 
+## Future Improvements
+
+### Bundling with esbuild
+
+The extension currently packages all dependencies (~4600 files, 29MB) to ensure the native `duckdb` module works correctly. While functional, bundling could reduce this to ~50-100 files and improve startup time by 100-300ms.
+
+**Why not bundled yet:**
+- Current approach is working well and maintainable
+- Native `duckdb` dependency complicates bundling
+- Performance impact is minimal with current approach
+
+**If implementing bundling:**
+- Use `esbuild` for better native module support
+- Keep `duckdb` external (native binaries can't be bundled)
+- Bundle all TypeScript code into 1-2 files
+- See [VS Code bundling guide](https://aka.ms/vscode-bundle-extension)
+
+---
+
 ## License
 
 MIT
