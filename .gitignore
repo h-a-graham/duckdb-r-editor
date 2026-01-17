@@ -8,6 +8,9 @@ dist
 # Claude Code development docs (internal, not for repo)
 .claude/docs/
 
+# Build instructions (development reference only)
+BUILD.md
+
 # R/duckdb scratch files
 R-test-files/*
 *.duckdb

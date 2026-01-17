@@ -14,7 +14,8 @@
       "mcp__ide__getDiagnostics",
       "Bash(npm install)",
       "WebSearch",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm run vsce:package:*)"
     ]
   }
 }

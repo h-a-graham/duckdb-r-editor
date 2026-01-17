@@ -61,17 +61,23 @@ Write DuckDB SQL with full IDE support - syntax highlighting, autocomplete, and 
 **Prerequisites:**
 - [Positron IDE](https://github.com/posit-dev/positron)
 - R with `DBI` and `duckdb` packages
-- Node.js 16+ (for building)
+
+**Option A: Download Release (Recommended)**
+
+1. Download the latest `.vsix` from [Releases](https://github.com/h-a-graham/duckdb-r-editor/releases/latest)
+2. In Positron: Extensions → ... menu → Install from VSIX
+3. Select the downloaded `duckdb-r-editor-0.4.0.vsix`
+
+**Option B: Build from Source**
+
+Requires Node.js 16+
 
 ```bash
-# Clone and build
 git clone https://github.com/h-a-graham/duckdb-r-editor.git
 cd duckdb-r-editor
 npm install
-npm run package
-
-# Install the .vsix file in Positron:
-# Extensions → ... menu → Install from VSIX
+npm run vsce:package
+# Then install the generated .vsix file in Positron
 ```
 
 ### 2. Create R Connection
