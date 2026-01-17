@@ -1,24 +1,56 @@
+# Build artifacts
 .vscode/**
 .vscode-test/**
+out/**
 src/**
+node_modules/.bin/**
+
+# Development files
 .gitignore
-.yarnrc
+.gitattributes
+.editorconfig
+.eslintrc.json
+tsconfig.json
+esbuild.js
 vsc-extension-quickstart.md
-**/tsconfig.json
-**/.eslintrc.json
+
+# Test files
+**/*.test.ts
+**/*.test.js
+**/test/**
+**/tests/**
+
+# Source maps
 **/*.map
+
+# TypeScript source files (we bundle everything)
 **/*.ts
-# Keep node_modules for production dependencies (like duckdb)
-# Exclude dev dependencies and test files from node_modules
-node_modules/**/.bin/**
-node_modules/**/test/**
-node_modules/**/tests/**
-node_modules/**/*.md
-node_modules/**/LICENSE*
-node_modules/**/.github/**
-# Exclude dev dependencies specifically
+
+# Development databases and test files
+*.duckdb
+*.duckdb.wal
+test.R
+.claude/**
+R-test-files/**
+
+# Documentation (keep docs folder, exclude development notes)
+docs/POSITRON_TESTING.md
+
+# Node modules - exclude dev dependencies
 node_modules/@types/**
 node_modules/@typescript-eslint/**
 node_modules/eslint/**
 node_modules/typescript/**
 node_modules/@vscode/vsce/**
+node_modules/esbuild/**
+node_modules/npm-run-all/**
+
+# Keep these in node_modules for production:
+# - duckdb (native binaries required)
+# - @posit-dev/positron (required for runtime)
+
+# Misc dev files
+.DS_Store
+*.vsix
+npm-debug.log*
+.npmrc
