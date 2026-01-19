@@ -24,8 +24,7 @@ export interface DuckDBFunction {
 }
 
 /**
- * Generic schema provider interface
- * Implemented by both DuckDBCliProvider and DuckDBConnectionManager
+ * Schema provider interface
  */
 export interface SchemaProvider {
     getTableNames(): string[];
@@ -35,8 +34,7 @@ export interface SchemaProvider {
 }
 
 /**
- * Extended schema provider with function support
- * Only implemented by DuckDBCliProvider
+ * Function provider interface
  */
 export interface FunctionProvider {
     getAllFunctions?(): DuckDBFunction[];

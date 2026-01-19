@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { SQLStringDetector } from './sqlStringDetector';
-import { getFunctionCompletions, getKeywordCompletions } from './duckdbFunctions';
+import { getKeywordCompletions } from './sqlKeywords';
 import { SchemaProvider, FunctionProvider } from './types';
 
 export class SQLCompletionProvider implements vscode.CompletionItemProvider {
@@ -45,11 +45,7 @@ export class SQLCompletionProvider implements vscode.CompletionItemProvider {
     // Context-aware: After SELECT, prioritize columns over everything else
     else if (this.isAfterSelectKeyword(textBeforeCursor)) {
       completions.push(...this.getAllColumnCompletions());
-      if (this.schemaProvider.getAllFunctions) {
-        completions.push(...this.getDynamicFunctionCompletions());
-      } else {
-        completions.push(...getFunctionCompletions());
-      }
+      completions.push(...this.getFunctionCompletions());
       completions.push(...getKeywordCompletions());
       completions.push(...this.getTableCompletions());
     }
@@ -68,21 +64,12 @@ export class SQLCompletionProvider implements vscode.CompletionItemProvider {
       // Then show all columns
       completions.push(...this.getAllColumnCompletions());
       // Then functions and keywords
-      if (this.schemaProvider.getAllFunctions) {
-        completions.push(...this.getDynamicFunctionCompletions());
-      } else {
-        completions.push(...getFunctionCompletions());
-      }
+      completions.push(...this.getFunctionCompletions());
       completions.push(...getKeywordCompletions());
     }
     else {
       // General completions - all the things!
-      // Use dynamic functions if available (from CLI provider), otherwise use hardcoded ones
-      if (this.schemaProvider.getAllFunctions) {
-        completions.push(...this.getDynamicFunctionCompletions());
-      } else {
-        completions.push(...getFunctionCompletions());
-      }
+      completions.push(...this.getFunctionCompletions());
       completions.push(...getKeywordCompletions());
       completions.push(...this.getTableCompletions());
       completions.push(...this.getAllColumnCompletions());
@@ -92,15 +79,11 @@ export class SQLCompletionProvider implements vscode.CompletionItemProvider {
   }
 
   /**
-   * Get dynamic function completions from DuckDB
+   * Get function completions from DuckDB
    * This includes ALL functions, including those from extensions!
    */
-  private getDynamicFunctionCompletions(): vscode.CompletionItem[] {
-    if (!this.schemaProvider.getAllFunctions) {
-      return [];
-    }
-
-    const functions = this.schemaProvider.getAllFunctions();
+  private getFunctionCompletions(): vscode.CompletionItem[] {
+    const functions = this.schemaProvider.getAllFunctions?.() || [];
 
     return functions.map(func => {
       const item = new vscode.CompletionItem(func.function_name, vscode.CompletionItemKind.Function);

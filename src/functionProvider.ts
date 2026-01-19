@@ -18,10 +18,8 @@ export class DuckDBFunctionProvider implements vscode.Disposable {
     }
 
     private initialize(): void {
-        console.log('Initializing DuckDB function provider...');
         this.db = new duckdb.Database(':memory:');
         this.connection = this.db.connect();
-        console.log('✓ Function provider initialized');
     }
 
     /**
@@ -34,15 +32,12 @@ export class DuckDBFunctionProvider implements vscode.Disposable {
         }
 
         try {
-            console.log('Querying duckdb_functions()...');
-
             // Load any registered extensions first
             if (this.loadedExtensions.size > 0) {
                 for (const ext of this.loadedExtensions) {
                     await this.query(`INSTALL ${ext}`);
                     await this.query(`LOAD ${ext}`);
                 }
-                console.log(`Loaded ${this.loadedExtensions.size} extensions`);
             }
 
             // Query all functions
@@ -77,10 +72,7 @@ export class DuckDBFunctionProvider implements vscode.Disposable {
                 });
             }
 
-            const extInfo = this.loadedExtensions.size > 0
-                ? ` (including extensions: ${Array.from(this.loadedExtensions).join(', ')})`
-                : '';
-            console.log(`✓ Discovered ${this.functions.size} functions${extInfo}`);
+            // Function discovery complete
         } catch (error) {
             console.error('Failed to refresh functions:', error);
         }
@@ -95,18 +87,14 @@ export class DuckDBFunctionProvider implements vscode.Disposable {
         }
 
         try {
-            console.log(`Loading extension '${extensionName}' for function discovery...`);
-
             await this.query(`INSTALL ${extensionName}`);
             await this.query(`LOAD ${extensionName}`);
 
             this.loadedExtensions.add(extensionName);
-            console.log(`✓ Extension '${extensionName}' loaded`);
 
             // Refresh functions to include extension functions
             await this.refreshFunctions();
         } catch (error: any) {
-            console.error(`Failed to load extension '${extensionName}':`, error);
             throw new Error(`Failed to load extension '${extensionName}': ${error.message}`);
         }
     }
@@ -119,7 +107,6 @@ export class DuckDBFunctionProvider implements vscode.Disposable {
             return;
         }
 
-        console.log(`Auto-loading ${extensionNames.length} default extensions...`);
         const errors: string[] = [];
 
         for (const extensionName of extensionNames) {
@@ -127,11 +114,8 @@ export class DuckDBFunctionProvider implements vscode.Disposable {
                 await this.query(`INSTALL ${extensionName}`);
                 await this.query(`LOAD ${extensionName}`);
                 this.loadedExtensions.add(extensionName);
-                console.log(`✓ Loaded default extension: ${extensionName}`);
             } catch (error: any) {
-                const errorMsg = `Failed to load '${extensionName}': ${error.message}`;
-                console.error(errorMsg);
-                errors.push(errorMsg);
+                errors.push(`Failed to load '${extensionName}': ${error.message}`);
             }
         }
 
@@ -149,24 +133,12 @@ export class DuckDBFunctionProvider implements vscode.Disposable {
      */
     mergeRFunctions(rFunctions: any[]): void {
         if (!rFunctions || rFunctions.length === 0) {
-            console.log('No R functions to merge');
             return;
         }
-
-        console.log(`Merging ${rFunctions.length} functions from R connection...`);
-        let newFunctions = 0;
-        let overriddenFunctions = 0;
 
         for (const rFunc of rFunctions) {
             const funcName = rFunc.function_name?.toLowerCase();
             if (!funcName) continue;
-
-            const isNew = !this.functions.has(funcName);
-            if (isNew) {
-                newFunctions++;
-            } else {
-                overriddenFunctions++;
-            }
 
             // Convert R function to DuckDBFunction format
             this.functions.set(funcName, {
@@ -178,9 +150,6 @@ export class DuckDBFunctionProvider implements vscode.Disposable {
                 parameter_types: rFunc.parameter_types || ''
             });
         }
-
-        console.log(`✓ Merged R functions: ${newFunctions} new, ${overriddenFunctions} overridden`);
-        console.log(`✓ Total functions available: ${this.functions.size}`);
     }
 
     /**

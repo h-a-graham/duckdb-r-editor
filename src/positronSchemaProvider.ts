@@ -29,7 +29,6 @@ export class PositronSchemaProvider implements vscode.Disposable {
     async connect(connectionName: string, dbPath: string): Promise<void> {
         this.connectionName = connectionName;
         this.dbPath = dbPath;
-        console.log(`Connected to R connection '${connectionName}' (${dbPath})`);
 
         // Create temp files for schema and functions
         const tmpDir = os.tmpdir();
@@ -49,8 +48,6 @@ export class PositronSchemaProvider implements vscode.Disposable {
         if (!this.schemaFilePath) {
             throw new Error('No schema file path set. Call connect() first.');
         }
-
-        console.log(`Querying schema from R connection '${this.connectionName}'...`);
 
         const targetConnection = this.connectionName;
         // Normalize file path for R (forward slashes, escape backslashes)
@@ -144,8 +141,6 @@ tryCatch({
 
             // Read schema from file
             await this.readSchemaFromFile();
-
-            console.log(`✓ Schema loaded: ${this.schema.size} tables`);
         } catch (error: any) {
             console.error('Failed to refresh schema:', error);
             throw new Error(`Failed to refresh schema: ${error.message}`);
@@ -180,8 +175,6 @@ tryCatch({
                     nullable: row.is_nullable === 'YES'
                 });
             }
-
-            console.log(`✓ Read schema from file: ${this.schema.size} tables`);
         } catch (error: any) {
             console.error('Failed to read schema file:', error);
             throw new Error(`Failed to read schema file: ${error.message}`);
@@ -248,11 +241,8 @@ tryCatch({
      */
     async refreshFunctions(): Promise<void> {
         if (!this.functionsFilePath) {
-            console.log('No functions file path set, skipping function refresh');
             return;
         }
-
-        console.log(`Querying functions from R connection '${this.connectionName}'...`);
 
         const targetConnection = this.connectionName;
         const functionsFilePath = this.functionsFilePath.replace(/\\/g, '/');
@@ -317,12 +307,9 @@ tryCatch({
 
             // Read functions from file
             await this.readFunctionsFromFile();
-
-            console.log(`✓ Functions loaded from R: ${this.rFunctions.length} functions`);
         } catch (error: any) {
             console.error('Failed to refresh functions:', error);
             // Don't throw - functions are optional, schema is critical
-            console.log('Continuing without R functions (Node.js functions still available)');
         }
     }
 
@@ -339,8 +326,6 @@ tryCatch({
             const fileContent = await vscode.workspace.fs.readFile(fileUri);
             const jsonStr = new TextDecoder().decode(fileContent);
             this.rFunctions = JSON.parse(jsonStr);
-
-            console.log(`✓ Read functions from file: ${this.rFunctions.length} functions`);
         } catch (error: any) {
             console.error('Failed to read functions file:', error);
             this.rFunctions = [];
@@ -352,13 +337,9 @@ tryCatch({
         if (this.schemaFilePath) {
             try {
                 const fileUri = vscode.Uri.file(this.schemaFilePath);
-                vscode.workspace.fs.delete(fileUri).then(
-                    () => console.log(`Deleted schema file: ${this.schemaFilePath}`),
-                    (error) => console.log(`Could not delete schema file: ${error}`)
-                );
+                vscode.workspace.fs.delete(fileUri);
             } catch (error) {
                 // Ignore cleanup errors
-                console.log('Error cleaning up schema file:', error);
             }
             this.schemaFilePath = null;
         }
@@ -367,13 +348,9 @@ tryCatch({
         if (this.functionsFilePath) {
             try {
                 const fileUri = vscode.Uri.file(this.functionsFilePath);
-                vscode.workspace.fs.delete(fileUri).then(
-                    () => console.log(`Deleted functions file: ${this.functionsFilePath}`),
-                    (error) => console.log(`Could not delete functions file: ${error}`)
-                );
+                vscode.workspace.fs.delete(fileUri);
             } catch (error) {
                 // Ignore cleanup errors
-                console.log('Error cleaning up functions file:', error);
             }
             this.functionsFilePath = null;
         }

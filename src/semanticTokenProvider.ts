@@ -79,7 +79,6 @@ export class SQLSemanticTokenProvider implements vscode.DocumentSemanticTokensPr
 
             return tokensBuilder.build();
         } catch (error) {
-            console.error('Error providing semantic tokens:', error);
             return null;
         }
     }
