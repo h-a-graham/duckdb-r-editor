@@ -1,78 +1,159 @@
 # Claude Code Context for DuckDB R Editor
 
-## Quick Reference for Future Sessions
+## Quick Reference
 
-### Architecture Overview
-- **Language**: TypeScript extension for VS Code/Positron
-- **Purpose**: SQL syntax highlighting and autocomplete for DuckDB in R files
-- **Key Feature**: Semantic token provider for context-aware SQL highlighting
+**Extension**: TypeScript for Positron IDE
+**Purpose**: SQL syntax highlighting and autocomplete for DuckDB in R files
+**Key Feature**: Direct R session integration via Positron API - no file locking
 
-### Important Implementation Details
+## Architecture
 
-1. **Semantic Highlighting** (`.claude/docs/semantic-highlighting.md`)
-   - Uses efficient O(n) two-pass algorithm
-   - Pass 1: Find SQL functions (dbGetQuery, glue_sql, etc.)
-   - Pass 2: Find strings within those functions
-   - Performance: ~1-3ms per file
-   - Enabled by default in settings
+### Core Components
 
-2. **Air Formatter Support** (`.claude/docs/air-formatter-support.md`)
-   - Handles multi-line strings where SQL starts on a separate line
-   - Context-aware token classification (tables vs columns vs functions)
-   - Properly skips R commented code
+1. **PositronSchemaProvider** - Queries R session for schema
+   - Silent R code execution with file-based I/O
+   - Connection-specific (supports `:memory:`)
+   - Auto-refresh on schema changes
 
-3. **Connection Management**
-   - Manual: Command Palette → "Connect to DuckDB Database"
-   - Auto: Set `duckdb-r-editor.duckdbPath` in settings
-   - Auto-detect: Place `test.duckdb` in workspace root
-   - NO automatic R session discovery (despite what old docs said)
+2. **DuckDBFunctionProvider** - Hybrid function system
+   - Node.js provides ~900 base functions
+   - R session functions override when connected
+   - Auto-load official extensions via settings
+
+3. **SQLCompletionProvider** - Context-aware autocomplete
+   - Tables, columns, functions, keywords
+   - Works in: `dbExecute`, `dbGetQuery`, `sql()`, `glue_sql()`
+   - Connection name extraction from arguments
+
+4. **SQL Highlighting** - Three layers
+   - Semantic tokens (default, O(n))
+   - TextMate grammar (fallback)
+   - Background decorator (theme-aware)
 
 ### Key Files
 
-- `src/semanticTokenProvider.ts` - SQL syntax highlighting (optimized)
-- `src/sqlStringDetector.ts` - Detects SQL strings in R code
+- `src/extension.ts` - Main entry, connection management, auto-refresh
+- `src/positronSchemaProvider.ts` - R session queries
+- `src/functionProvider.ts` - Hybrid functions
 - `src/completionProvider.ts` - Autocomplete logic
-- `src/extension.ts` - Main entry point
-- `syntaxes/r-sql-injection.json` - TextMate grammar (fallback)
+- `src/sqlStringDetector.ts` - SQL string detection
+- `src/semanticTokenProvider.ts` - Syntax highlighting
+- `src/sqlBackgroundDecorator.ts` - Visual backgrounds
 
-### Settings
+## Important Implementation Details
 
-- `useSemanticHighlighting` (default: true) - Use advanced highlighting
-- `duckdbPath` - Path to database for auto-connect
-- `enableAutoComplete` (default: true)
-- `enableDiagnostics` (default: true)
+### Connection Workflow
+1. User: Command Palette → "Connect to DuckDB Database"
+2. Extension: Discovers R connections via silent execution
+3. User: Selects connection from QuickPick (e.g., "con")
+4. Extension: Queries schema and functions from R
+5. Extension: Merges R functions with Node.js base
+6. Ready: Autocomplete active!
 
-### Known Limitations
+### Auto-Refresh
+- Triggers on: CREATE/DROP/ALTER, INSERT/UPDATE/DELETE, INSTALL/LOAD
+- Debounced: 1.5s delay to batch changes
+- Detects: Connection name in executed code
+- Notifications: Shows table/function count changes
+- Silent: No R console pollution
 
-- In-memory databases (`:memory:`) not supported for schema autocomplete
-- No hover documentation provider (only autocomplete documentation)
-- No automatic R session connection discovery
+### Hybrid Functions
+- **Before connecting**: Node.js functions available
+- **After connecting**: R functions override (source of truth)
+- **Extensions in R**: Automatically detected
+- **Official extensions**: Load via command or settings
 
-### DuckDB-Specific Features
+### SQL Detection
+- Functions: `dbExecute`, `dbGetQuery`, `sql()`, `glue_sql()`
+- Scope validation: Proper parenthesis matching
+- Connection extraction: From function arguments
+- Glue support: Handles `{}` interpolation blocks
 
-Comprehensive keyword support including:
-- Extension commands: INSTALL, LOAD
-- Metadata: DESCRIBE, SHOW, SUMMARIZE
-- Data types: All DuckDB types (INTEGER, TIMESTAMP, JSON, ARRAY, etc.)
+## Settings
 
-### Color Scheme (VS Code Dark+)
+```json
+{
+  "duckdb-r-editor.enableAutoComplete": true,
+  "duckdb-r-editor.useSemanticHighlighting": true,
+  "duckdb-r-editor.autoRefreshSchema": true,
+  "duckdb-r-editor.defaultExtensions": ["spatial", "httpfs"]
+}
+```
 
-- `#569CD6` (Blue) - Keywords
-- `#DCDCAA` (Yellow) - Functions
-- `#4EC9B0` (Cyan) - Table names
-- White - Column names
-- `#CE9178` (Orange) - Strings
+## Commands
 
-## For Future Development
+- **Connect to DuckDB Database** - Select R connection
+- **Disconnect from Database** - Clear connection
+- **Refresh DuckDB Schema** - Manual update
+- **Load DuckDB Extension** - One-time official extensions
 
-When enhancing this extension:
-1. Check `.claude/docs/` for architectural context
-2. Update performance docs if changing semantic provider
-3. Test with Air formatter patterns (see `test_air_format.R`)
-4. Verify no crashes with large files (safety limits in place)
+## Performance
+
+- **SQL detection**: O(n) algorithm, ~1-3ms per file
+- **Document cache**: Invalidates on changes
+- **R execution**: Silent mode, file-based I/O
+- **Debouncing**: Prevents spam (1.5s)
+- **Safety limits**: 1MB max document size
+
+## Key Design Decisions
+
+### Why Positron API?
+- Direct R session access
+- No file locking issues
+- Supports `:memory:` databases
+- Silent execution mode
+
+### Why Hybrid Functions?
+- Immediate autocomplete (Node.js)
+- Accurate session state (R override)
+- Best of both worlds
+
+### Why Connection Selection?
+- Multiple connections support
+- In-memory databases work
+- User explicitly chooses
+- Matches R mental model
+
+### Why File-Based R Communication?
+- Silent (no console pollution)
+- Efficient for large data
+- Clean error handling
+- Avoids stdout parsing
+
+## Extension Points
+
+### Official Extensions (Node.js)
+- Load via: Command or `defaultExtensions` setting
+- Available: Before connecting to R
+- Examples: spatial, httpfs, json, parquet
+
+### Community Extensions (R only)
+```r
+dbExecute(con, "INSTALL a5 FROM community; LOAD a5;")
+# Functions automatically available via auto-refresh
+```
+
+## Known Limitations
+
+- Community extensions: R-only (Node.js DuckDB limitations)
+- Requires Positron IDE (uses Positron API)
+- Auto-refresh: Requires `autoRefreshSchema: true` (default)
 
 ## Recent Major Changes
 
-- **Jan 2026**: Optimized semantic highlighting (O(n²) → O(n))
-- **Jan 2026**: Added comprehensive DuckDB keyword support
-- **Jan 2026**: Made semantic highlighting default (stable + fast)
+- **Jan 2026**: Hybrid function provider (Node.js + R merge)
+- **Jan 2026**: Auto-refresh schema and functions
+- **Jan 2026**: R connection selection UI (supports `:memory:`)
+- **Jan 2026**: Themed SQL background colors
+- **Jan 2026**: Community extension support via R
+- **Jan 2026**: Silent R execution (no console pollution)
+- **Jan 2026**: Function count notifications
+
+## For Future Development
+
+1. All R code must use silent execution mode
+2. Use temp files for data transfer (not stdout)
+3. Always cleanup temp files in finally/dispose
+4. Debounce auto-refresh to prevent spam
+5. Test with Air formatter multi-line patterns
+6. Verify no console pollution on errors
