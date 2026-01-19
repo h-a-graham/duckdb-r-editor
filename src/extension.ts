@@ -5,8 +5,6 @@ import { DuckDBFunctionProvider } from './functionProvider';
 import { SQLDiagnosticsProvider } from './diagnosticsProvider';
 import { DocumentCache } from './documentCache';
 import { SQLSemanticTokenProvider } from './semanticTokenProvider';
-// PHASE 1: SchemaWatcher disabled - only manual refresh
-// import { SchemaWatcher } from './schemaWatcher';
 import { tryAcquirePositronApi } from '@posit-dev/positron';
 
 let schemaProvider: PositronSchemaProvider | undefined;
@@ -15,8 +13,6 @@ let diagnosticsProvider: SQLDiagnosticsProvider;
 let outputChannel: vscode.OutputChannel;
 let documentCache: DocumentCache;
 let semanticTokenProvider: SQLSemanticTokenProvider;
-// PHASE 1: SchemaWatcher disabled - only manual refresh
-// let schemaWatcher: SchemaWatcher | undefined;
 let extensionContext: vscode.ExtensionContext;
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -181,13 +177,6 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      // PHASE 1: SchemaWatcher disabled - only manual refresh
-      // Stop schema watcher
-      // if (schemaWatcher) {
-      //   schemaWatcher.dispose();
-      //   schemaWatcher = undefined;
-      // }
-
       // Disconnect by disposing the schema provider
       schemaProvider.dispose();
       schemaProvider = undefined;
@@ -274,6 +263,14 @@ export async function activate(context: vscode.ExtensionContext) {
     refreshSchemaCommand,
     loadExtensionCommand
   );
+
+  // Setup auto-refresh on code execution
+  if (config.get<boolean>('autoRefreshSchema', true)) {
+    setupAutoRefresh(positronApi, context);
+    outputChannel.appendLine('✓ Auto-refresh enabled (triggers when code references connection)');
+  } else {
+    outputChannel.appendLine('Auto-refresh disabled (use manual refresh command)');
+  }
 
   outputChannel.appendLine('Extension activation complete!');
   outputChannel.appendLine('Commands available: "R SQL: Connect to DuckDB Database", "R SQL: Refresh Database Schema"');
@@ -426,14 +423,6 @@ async function connectToDatabase(connectionName: string, dbPath: string): Promis
         outputChannel.appendLine(`    - ${col.name}: ${col.type}`);
       });
     }
-
-    // PHASE 1: SchemaWatcher disabled - only manual refresh
-    // Start schema watcher for automatic refresh
-    // if (schemaWatcher) {
-    //   schemaWatcher.dispose();
-    // }
-    // schemaWatcher = new SchemaWatcher(schemaProvider, positronApi, outputChannel);
-    // schemaWatcher.start();
   } catch (err: any) {
     outputChannel.appendLine(`✗ Connection failed: ${err.message}`);
     vscode.window.showErrorMessage(`Failed to connect: ${err.message}`);
@@ -477,14 +466,87 @@ async function refreshSchema(): Promise<void> {
 }
 
 export function deactivate() {
-  // PHASE 1: SchemaWatcher disabled - only manual refresh
-  // if (schemaWatcher) {
-  //   schemaWatcher.dispose();
-  // }
   if (schemaProvider) {
     schemaProvider.dispose();
   }
   if (functionProvider) {
     functionProvider.dispose();
   }
+}
+
+/**
+ * Setup auto-refresh on R code execution
+ * Refreshes schema when code references the connection object
+ */
+function setupAutoRefresh(positronApi: any, context: vscode.ExtensionContext): void {
+  let refreshTimer: NodeJS.Timeout | undefined;
+
+  // Debounced refresh function (1.5 second delay)
+  const debouncedRefresh = () => {
+    if (refreshTimer) {
+      clearTimeout(refreshTimer);
+    }
+
+    refreshTimer = setTimeout(async () => {
+      if (!schemaProvider || !schemaProvider.isConnected()) {
+        return;
+      }
+
+      try {
+        await schemaProvider.refreshSchema();
+        outputChannel.appendLine(`[Auto-refresh] Schema updated: ${schemaProvider.getTableNames().length} tables`);
+      } catch (error: any) {
+        outputChannel.appendLine(`[Auto-refresh] Failed: ${error.message}`);
+        // Don't show error to user - auto-refresh is background operation
+      }
+    }, 1500); // 1.5 second debounce
+  };
+
+  // Listen to code execution events
+  const disposable = positronApi.runtime.onDidExecuteCode((event: any) => {
+    // Only process R code
+    if (event.languageId !== 'r') {
+      return;
+    }
+
+    // Only refresh if connected
+    if (!schemaProvider || !schemaProvider.isConnected()) {
+      return;
+    }
+
+    // Check if code references the connection
+    const connectionName = schemaProvider.getConnectionName();
+    if (!connectionName) {
+      return;
+    }
+
+    const code = event.code || '';
+
+    // Must contain connection name
+    if (!code.includes(connectionName)) {
+      return;
+    }
+
+    // Must ALSO contain schema-modifying operations
+    // This prevents refresh when connection name just happens to be in the script
+    const schemaModifyingPatterns = [
+      /dbExecute\s*\(/i,                    // dbExecute(con, ...)
+      /dbWriteTable\s*\(/i,                 // dbWriteTable(con, ...)
+      /dbRemoveTable\s*\(/i,                // dbRemoveTable(con, ...)
+      /dbCreateTable\s*\(/i,                // dbCreateTable(con, ...)
+      /\bCREATE\s+(TABLE|VIEW|INDEX)/i,    // CREATE TABLE/VIEW/INDEX
+      /\bDROP\s+(TABLE|VIEW|INDEX)/i,      // DROP TABLE/VIEW/INDEX
+      /\bALTER\s+TABLE/i,                   // ALTER TABLE
+      /\bTRUNCATE\s+TABLE/i,                // TRUNCATE TABLE
+    ];
+
+    const hasSchemaModifyingOp = schemaModifyingPatterns.some(pattern => pattern.test(code));
+
+    if (hasSchemaModifyingOp) {
+      outputChannel.appendLine(`[Auto-refresh] Detected schema-modifying operation on '${connectionName}', refreshing...`);
+      debouncedRefresh();
+    }
+  });
+
+  context.subscriptions.push(disposable);
 }
