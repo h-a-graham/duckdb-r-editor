@@ -16,6 +16,8 @@ let diagnosticsProvider: SQLDiagnosticsProvider;
 let outputChannel: vscode.OutputChannel;
 let documentCache: DocumentCache;
 let semanticTokenProvider: SQLSemanticTokenProvider;
+let previousTableCount: number = 0;
+let shownEmptyDbWarning: boolean = false;
 
 // Constants
 const DEBOUNCE_DELAY_MS = 1500;
@@ -199,6 +201,10 @@ export async function activate(context: vscode.ExtensionContext) {
       schemaProvider.dispose();
       schemaProvider = undefined;
 
+      // Reset tracking state
+      previousTableCount = 0;
+      shownEmptyDbWarning = false;
+
       outputChannel.appendLine('✓ Disconnected from database');
       vscode.window.showInformationMessage('Disconnected from database');
     }
@@ -314,50 +320,54 @@ async function discoverRConnections(): Promise<RConnectionInfo[]> {
 
   const rCode = `
 tryCatch({
-    all_objs <- ls(envir = .GlobalEnv)
-    connections <- list()
+    .dbre_all_objs <- ls(envir = .GlobalEnv)
+    .dbre_connections <- list()
 
-    for (obj_name in all_objs) {
-        obj <- get(obj_name, envir = .GlobalEnv)
-        if (inherits(obj, "duckdb_connection")) {
+    for (.dbre_obj_name in .dbre_all_objs) {
+        .dbre_tmp_obj <- get(.dbre_obj_name, envir = .GlobalEnv)
+        if (inherits(.dbre_tmp_obj, "duckdb_connection")) {
             # Get database path
-            db_path <- tryCatch({
-                obj@driver@dbdir
+            .dbre_db_path <- tryCatch({
+                .dbre_tmp_obj@driver@dbdir
             }, error = function(e) {
                 ":memory:"
             })
 
             # Count tables
-            table_count <- tryCatch({
-                length(DBI::dbListTables(obj))
+            .dbre_table_count <- tryCatch({
+                length(DBI::dbListTables(.dbre_tmp_obj))
             }, error = function(e) {
                 0
             })
 
-            connections[[length(connections) + 1]] <- list(
-                name = obj_name,
-                dbPath = db_path,
-                tableCount = table_count
+            .dbre_connections[[length(.dbre_connections) + 1]] <- list(
+                name = .dbre_obj_name,
+                dbPath = .dbre_db_path,
+                tableCount = .dbre_table_count
             )
         }
     }
 
-    if (length(connections) == 0) {
+    if (length(.dbre_connections) == 0) {
         stop("No DuckDB connections found in R session")
     }
 
     # Write to file (no console output in silent mode)
-    temp_file <- "${tempFilePathR}"
+    .dbre_temp_file <- "${tempFilePathR}"
 
     if (requireNamespace("jsonlite", quietly = TRUE)) {
-        jsonlite::write_json(connections, temp_file, auto_unbox = TRUE)
+        jsonlite::write_json(.dbre_connections, .dbre_temp_file, auto_unbox = TRUE)
     } else {
-        json_output <- paste0("[", paste(sapply(connections, function(c) {
+        .dbre_json_output <- paste0("[", paste(sapply(.dbre_connections, function(c) {
             sprintf('{"name":"%s","dbPath":"%s","tableCount":%d}',
                 c$name, c$dbPath, c$tableCount)
         }), collapse = ","), "]")
-        writeLines(json_output, temp_file)
+        writeLines(.dbre_json_output, .dbre_temp_file)
     }
+
+    # Cleanup: Remove all temporary variables
+    rm(.dbre_all_objs, .dbre_connections, .dbre_obj_name, .dbre_tmp_obj, .dbre_db_path, .dbre_table_count, .dbre_temp_file)
+    if (exists(".dbre_json_output")) rm(.dbre_json_output)
 
     invisible(NULL)
 }, error = function(e) {
@@ -410,18 +420,20 @@ async function connectToDatabase(connectionName: string, dbPath: string): Promis
     const tableCount = schemaProvider.getTableNames().length;
     const funcCount = functionProvider?.getAllFunctions().length || 0;
 
+    // Track initial state for auto-refresh notifications
+    previousTableCount = tableCount;
+    shownEmptyDbWarning = (tableCount === 0);
+
     const dbInfo = dbPath === ':memory:' ? 'in-memory database' : dbPath;
 
     if (tableCount === 0) {
-      vscode.window.showWarningMessage(
-        `Connected to ${connectionName} (${dbInfo})\n\n` +
-        `⚠️  Database is empty - no tables found.\n\n` +
-        `Autocomplete will work for DuckDB functions (${funcCount} available) but not for tables/columns yet.\n\n` +
-        `Create tables in R, then use "Refresh DuckDB Schema" command to update.`,
-        'OK'
+      // Toast notification (visible but dismissible without clicking)
+      vscode.window.showInformationMessage(
+        `⚠️  Connected to '${connectionName}' - Empty database. ` +
+        `${funcCount} DuckDB functions available for autocomplete. Create tables in R to enable table/column autocomplete.`
       );
       outputChannel.appendLine(`⚠️  Connected to ${connectionName} (${dbInfo}) - Empty database (0 tables)`);
-      outputChannel.appendLine(`   💡 Tip: Create tables in R, then use "Refresh DuckDB Schema" to update autocomplete`);
+      outputChannel.appendLine(`   💡 Tip: Create tables in R, then schema will auto-refresh`);
     } else {
       vscode.window.showInformationMessage(
         `Connected to ${connectionName} (${dbInfo})\n${tableCount} tables, ${funcCount} functions available`
@@ -496,7 +508,7 @@ export function deactivate() {
 function setupAutoRefresh(positronApi: any, context: vscode.ExtensionContext): void {
   let refreshTimer: NodeJS.Timeout | undefined;
 
-  // Debounced refresh function
+  // Debounced refresh function with change detection
   const debouncedRefresh = () => {
     if (refreshTimer) {
       clearTimeout(refreshTimer);
@@ -509,7 +521,41 @@ function setupAutoRefresh(positronApi: any, context: vscode.ExtensionContext): v
 
       try {
         await schemaProvider.refreshSchema();
-        outputChannel.appendLine(`[Auto-refresh] Schema updated: ${schemaProvider.getTableNames().length} tables`);
+        const newTableCount = schemaProvider.getTableNames().length;
+        const tableCountChanged = newTableCount !== previousTableCount;
+
+        // Log to output channel
+        outputChannel.appendLine(`[Auto-refresh] Schema updated: ${newTableCount} tables`);
+
+        // Detect specific schema changes and notify user
+        if (tableCountChanged) {
+          const connectionName = schemaProvider.getConnectionName();
+
+          // Special case: Database was empty, now has tables (dismiss empty warning conceptually)
+          if (shownEmptyDbWarning && previousTableCount === 0 && newTableCount > 0) {
+            vscode.window.showInformationMessage(
+              `✓ Schema updated: ${newTableCount} table${newTableCount !== 1 ? 's' : ''} detected in '${connectionName}'!`
+            );
+            shownEmptyDbWarning = false;
+          }
+          // Tables added
+          else if (newTableCount > previousTableCount) {
+            const added = newTableCount - previousTableCount;
+            vscode.window.showInformationMessage(
+              `✓ ${added} new table${added !== 1 ? 's' : ''} added to '${connectionName}' (Total: ${newTableCount} table${newTableCount !== 1 ? 's' : ''})`
+            );
+          }
+          // Tables removed
+          else if (newTableCount < previousTableCount) {
+            const removed = previousTableCount - newTableCount;
+            vscode.window.showInformationMessage(
+              `⚠️  ${removed} table${removed !== 1 ? 's' : ''} removed from '${connectionName}' (Total: ${newTableCount} table${newTableCount !== 1 ? 's' : ''})`
+            );
+          }
+
+          // Update tracked count
+          previousTableCount = newTableCount;
+        }
       } catch (error: any) {
         outputChannel.appendLine(`[Auto-refresh] Failed: ${error.message}`);
         // Don't show error to user - auto-refresh is background operation

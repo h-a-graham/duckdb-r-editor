@@ -59,9 +59,9 @@ tryCatch({
         stop("Connection '${targetConnection}' not found in R session")
     }
 
-    con <- get("${targetConnection}", envir = .GlobalEnv)
+    .dbre_tmp_conn <- get("${targetConnection}", envir = .GlobalEnv)
 
-    if (!inherits(con, "duckdb_connection")) {
+    if (!inherits(.dbre_tmp_conn, "duckdb_connection")) {
         stop("Object '${targetConnection}' is not a DuckDB connection")
     }
 
@@ -70,12 +70,12 @@ tryCatch({
         stop("DBI package not available")
     }
 
-    tables <- DBI::dbListTables(con)
+    tables <- DBI::dbListTables(.dbre_tmp_conn)
     result <- list()
 
     for (table in tables) {
         tryCatch({
-            col_info <- DBI::dbGetQuery(con, sprintf(
+            col_info <- DBI::dbGetQuery(.dbre_tmp_conn, sprintf(
                 "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = '%s' AND table_schema = 'main' ORDER BY ordinal_position",
                 table
             ))
@@ -109,6 +109,9 @@ tryCatch({
         }
         writeLines(json_output, schema_file_path)
     }
+
+    # Cleanup: Remove temporary connection reference
+    rm(.dbre_tmp_conn)
 
     invisible(NULL)
 }, error = function(e) {
