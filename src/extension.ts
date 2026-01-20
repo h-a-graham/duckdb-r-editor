@@ -101,14 +101,14 @@ export async function activate(context: vscode.ExtensionContext) {
   outputChannel.appendLine('Initializing document cache');
   documentCache = new DocumentCache();
 
-  // Check if semantic highlighting is enabled (default: false to avoid interfering with R syntax)
-  const useSemanticHighlighting = config.get<boolean>('useSemanticHighlighting', false);
+  // Check if SQL highlighting is enabled
+  const enableSQLHighlighting = config.get<boolean>('enableSQLHighlighting', true);
 
-  if (useSemanticHighlighting) {
-    // Register semantic token provider for Air formatter support
-    outputChannel.appendLine('Registering semantic token provider for SQL highlighting');
-    outputChannel.appendLine('  Supports Air formatter multi-line strings');
-    outputChannel.appendLine('  Only highlights SQL content - preserves R syntax highlighting');
+  if (enableSQLHighlighting) {
+    // Register semantic token provider for SQL keyword/function highlighting
+    outputChannel.appendLine('Registering SQL syntax highlighting');
+    outputChannel.appendLine('  Context-aware keyword and function highlighting');
+    outputChannel.appendLine('  Full support for Air formatter multi-line strings');
     semanticTokenProvider = new SQLSemanticTokenProvider(documentCache);
 
     const semanticTokenProviderDisposable = vscode.languages.registerDocumentSemanticTokensProvider(
@@ -117,17 +117,15 @@ export async function activate(context: vscode.ExtensionContext) {
       SQLSemanticTokenProvider.getLegend()
     );
     context.subscriptions.push(semanticTokenProviderDisposable);
-  } else {
-    // Use TextMate grammar injection (fallback)
-    outputChannel.appendLine('SQL syntax highlighting using TextMate grammar injection');
-    outputChannel.appendLine('  Note: Limited support for Air formatter multi-line strings');
-  }
 
-  // Initialize SQL background decorator for visual distinction
-  outputChannel.appendLine('Initializing SQL background decorator');
-  sqlBackgroundDecorator = new SQLBackgroundDecorator();
-  context.subscriptions.push(sqlBackgroundDecorator);
-  outputChannel.appendLine('  Theme-aware background colors for SQL strings');
+    // Initialize SQL background decorator for visual distinction
+    outputChannel.appendLine('Initializing SQL background decorator');
+    sqlBackgroundDecorator = new SQLBackgroundDecorator();
+    context.subscriptions.push(sqlBackgroundDecorator);
+    outputChannel.appendLine('  Theme-aware background colors for SQL strings');
+  } else {
+    outputChannel.appendLine('SQL syntax highlighting disabled');
+  }
 
   // Combined provider adapter for completion (schema + functions)
   const combinedProvider = {

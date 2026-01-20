@@ -86,11 +86,11 @@ export class SQLCompletionProvider implements vscode.CompletionItemProvider {
       completions.push(...getKeywordCompletions('2'));
     }
     else {
-      // General completions - all the things!
-      completions.push(...this.getFunctionCompletions());
-      completions.push(...getKeywordCompletions());
-      completions.push(...this.getTableCompletions());
-      completions.push(...this.getAllColumnCompletions());
+      // General completions - prioritize columns and tables
+      completions.push(...this.getAllColumnCompletions('0')); // Columns first
+      completions.push(...this.getFunctionCompletions('1')); // Functions second
+      completions.push(...getKeywordCompletions('2')); // Keywords third
+      completions.push(...this.getTableCompletions('3')); // Tables fourth
     }
 
     // Return as CompletionList for better control over behavior
