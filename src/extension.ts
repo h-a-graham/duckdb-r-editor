@@ -143,13 +143,10 @@ export async function activate(context: vscode.ExtensionContext) {
   const completionProvider = vscode.languages.registerCompletionItemProvider(
     { language: 'r', scheme: 'file' },
     new SQLCompletionProvider(combinedProvider as any),
-    '.', // Trigger on dot for table.column
-    ' ', // Trigger on space
-    '"', // Trigger on quote
-    "'", // Trigger on single quote
-    'S', 'E', 'F', 'W', 'J', 'O', 'I', // Common SQL keywords
-    '*', ',', '=' // SQL operators
+    // Trigger on all letters + common SQL characters
+    ...('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz .,*="\'' as string).split('')
   );
+  context.subscriptions.push(completionProvider);
 
   // Register commands
   outputChannel.appendLine('Registering commands: connectDatabase, refreshSchema, executeQuery');

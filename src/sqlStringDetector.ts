@@ -64,9 +64,10 @@ export class SQLStringDetector {
         let quoteChar = '';
 
         // Start from current position and search backwards
+        // Start from position-1 to skip the character at cursor (could be closing quote)
         for (let lineNum = position.line; lineNum >= Math.max(0, position.line - PARSING_LIMITS.CONTEXT_LINE_LOOKBACK); lineNum--) {
             const lineText = document.lineAt(lineNum).text;
-            const startChar = lineNum === position.line ? position.character : lineText.length - 1;
+            const startChar = lineNum === position.line ? Math.max(0, position.character - 1) : lineText.length - 1;
 
             for (let i = startChar; i >= 0; i--) {
                 const char = lineText[i];
