@@ -29,7 +29,10 @@ Write DuckDB SQL with full IDE support right inside R strings. Take full advanta
 
 ### 1. Install
 
-**Download Release (Recommended)** 1. Download `.vsix` from [Releases](https://github.com/h-a-graham/duckdb-r-editor/releases/latest) 2. Positron: Extensions → ... → Install from VSIX
+**Download Release (Recommended)** 
+
+1. Download `.vsix` from [Releases](https://github.com/h-a-graham/duckdb-r-editor/releases/latest)
+2. Positron: Extensions → ... → Install from VSIX
 
 **Or Build from Source**
 
