@@ -135,9 +135,15 @@ Disable in settings: `"autoRefreshSchema": false`
 
 ## Why This Extension?
 
-Writing SQL in R strings without IDE support means: - Guessing table/column names - No syntax validation until runtime - Constant context switching to check schema
+Writing SQL in R strings without IDE support means: 
+- Guessing table/column names
+- No syntax validation until runtime
+- Constant context switching to check schema
 
-This extension provides: - ✅ Real-time autocomplete from your active R session - ✅ Syntax highlighting and validation - ✅ Zero file locking (queries R directly) - ✅ Seamless workflow - stay in your code
+This extension provides: 
+- ✅ Real-time autocomplete from your active R session
+- ✅ Syntax highlighting and validation
+- ✅ Seamless workflow - stay in your code
 
 ------------------------------------------------------------------------
 
