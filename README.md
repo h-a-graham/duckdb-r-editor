@@ -20,7 +20,6 @@ Write DuckDB SQL with full IDE support right inside R strings. Take full advanta
 -   🧠 **Smart Autocomplete** - 900+ DuckDB functions + live schema from R session
 -   🔌 **R Connection Picker** - Select specific connection objects (supports `:memory:`)
 -   🔄 **Auto-Refresh** - Detects schema changes automatically
--   ⚡ **Hybrid Functions** - Combines Node.js base + R session functions
 -   🌈 **Visual Distinction** - Themed background colors for SQL strings
 -   ✈️ **Air Formatter Support** - Works with multi-line SQL
 
