@@ -11,6 +11,10 @@ export class SQLBackgroundDecorator implements vscode.Disposable {
   private updateTimeout: NodeJS.Timeout | null = null;
   private readonly DEBOUNCE_MS = 100;
 
+  // Theme-specific background colors
+  private static readonly LIGHT_THEME_BG_COLOR = 'rgba(109, 255, 243, 0.1)';  // Soft cyan - database/water association
+  private static readonly DARK_THEME_BG_COLOR = 'rgba(114, 233, 98, 0.2)';    // Soft green - matrix/terminal aesthetic
+
   constructor() {
     // Create initial decoration type
     this.updateDecorationType();
@@ -94,14 +98,12 @@ export class SQLBackgroundDecorator implements vscode.Disposable {
     switch (theme.kind) {
       case vscode.ColorThemeKind.Light:
       case vscode.ColorThemeKind.HighContrastLight:
-        // Warm blue-tinted background for light themes - database/SQL association
-        return 'rgba(109, 255, 243, 0.1)';
+        return SQLBackgroundDecorator.LIGHT_THEME_BG_COLOR;
 
       case vscode.ColorThemeKind.Dark:
       case vscode.ColorThemeKind.HighContrast:
       default:
-        // Cool blue highlight for dark themes - classy and noticeable
-        return 'rgba(114, 233, 98, 0.2)';
+        return SQLBackgroundDecorator.DARK_THEME_BG_COLOR;
     }
   }
 
