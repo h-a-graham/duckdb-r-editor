@@ -6,6 +6,8 @@ import { SQLStringDetector } from './sqlStringDetector';
  */
 export class SQLDiagnosticsProvider implements vscode.CodeActionProvider {
     private diagnosticCollection: vscode.DiagnosticCollection;
+    private static readonly SQL_FUNCTION_PATTERN = /\b(dbGetQuery|dbExecute|dbSendQuery|dbSendStatement|glue_sql|glue_data_sql|sql)\s*\(/;
+    private static readonly MAX_SQL_STRING_LOOKAHEAD_LINES = 5;
 
     constructor() {
         this.diagnosticCollection = vscode.languages.createDiagnosticCollection('duckdb-r-editor');
@@ -36,19 +38,17 @@ export class SQLDiagnosticsProvider implements vscode.CodeActionProvider {
 
         // Basic SQL validation
         // Find SQL function calls and check positions in the next few lines for SQL strings
-        const sqlFunctionPattern = /\b(dbGetQuery|dbExecute|dbSendQuery|dbSendStatement|glue_sql|glue_data_sql|sql)\s*\(/;
-
         for (let i = 0; i < document.lineCount; i++) {
             const line = document.lineAt(i);
             const lineText = line.text;
 
             // Skip lines without SQL function calls
-            if (!sqlFunctionPattern.test(lineText)) {
+            if (!SQLDiagnosticsProvider.SQL_FUNCTION_PATTERN.test(lineText)) {
                 continue;
             }
 
-            // Check this line and the next 5 lines for SQL strings (handles multi-line formatting)
-            for (let offset = 0; offset <= 5 && i + offset < document.lineCount; offset++) {
+            // Check this line and the next few lines for SQL strings (handles multi-line formatting)
+            for (let offset = 0; offset <= SQLDiagnosticsProvider.MAX_SQL_STRING_LOOKAHEAD_LINES && i + offset < document.lineCount; offset++) {
                 const checkLine = document.lineAt(i + offset);
                 const checkText = checkLine.text;
 
@@ -57,6 +57,12 @@ export class SQLDiagnosticsProvider implements vscode.CodeActionProvider {
                 if (quoteMatch && quoteMatch.index !== undefined) {
                     // Check position right after the quote (inside the string)
                     const checkPos = quoteMatch.index + 1;
+
+                    // Ensure the position is within the line text before using it
+                    if (checkPos >= checkText.length) {
+                        continue;
+                    }
+
                     const position = new vscode.Position(i + offset, checkPos);
                     const sqlContext = SQLStringDetector.isInsideSQLString(document, position);
 
