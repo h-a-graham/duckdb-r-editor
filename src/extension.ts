@@ -278,11 +278,12 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.workspace.onDidChangeTextDocument(event => {
       if (event.document.languageId === 'r') {
-        // Update diagnostics
-        diagnosticsProvider.updateDiagnostics(event.document);
-
-        // Invalidate document cache to force re-parse on next access
+        // IMPORTANT: Invalidate cache FIRST, then update diagnostics
+        // This ensures diagnostics see the fresh document, not cached data
         documentCache.invalidateDocument(event.document);
+
+        // Update diagnostics with fresh document
+        diagnosticsProvider.updateDiagnostics(event.document);
       }
     })
   );

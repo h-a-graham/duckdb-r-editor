@@ -101,7 +101,7 @@ export class SQLBackgroundDecorator implements vscode.Disposable {
       case vscode.ColorThemeKind.HighContrast:
       default:
         // Cool blue highlight for dark themes - classy and noticeable
-        return 'rgba(255, 179, 92, 0.2)';
+        return 'rgba(114, 233, 98, 0.2)';
     }
   }
 
