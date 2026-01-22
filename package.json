@@ -46,7 +46,13 @@
         "duckdb-r-editor.enableSQLHighlighting": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Enable SQL syntax highlighting in R strings. Includes:\n- SQL keyword highlighting (SELECT, FROM, WHERE, etc.)\n- SQL function highlighting (COUNT, SUM, DATE_TRUNC, etc.)\n- Background color for SQL strings\n- Full support for Air-formatted multi-line strings\n\n**Note:** Requires window reload after changing. Use `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac) and run **Developer: Reload Window**.",
+          "markdownDescription": "Enable SQL keyword and function highlighting in R strings:\n- SQL keyword highlighting (SELECT, FROM, WHERE, etc.)\n- SQL function highlighting (COUNT, SUM, DATE_TRUNC, etc.)\n- Full support for Air-formatted multi-line strings\n\n**Note:** Requires window reload after changing. Use `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac) and run **Developer: Reload Window**.",
+          "scope": "window"
+        },
+        "duckdb-r-editor.enableSQLBackgroundColor": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Enable background color highlighting for SQL strings in R code. Adds a subtle background color to visually distinguish SQL strings from regular R code.\n\n**Note:** Requires window reload after changing. Use `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac) and run **Developer: Reload Window**.",
           "scope": "window"
         },
         "duckdb-r-editor.defaultExtensions": {

@@ -6,6 +6,8 @@ import { SQLStringDetector } from './sqlStringDetector';
  */
 export class SQLDiagnosticsProvider implements vscode.CodeActionProvider {
     private diagnosticCollection: vscode.DiagnosticCollection;
+    private static readonly SQL_FUNCTION_PATTERN = /\b(dbGetQuery|dbExecute|dbSendQuery|dbSendStatement|glue_sql|glue_data_sql|sql)\s*\(/;
+    private static readonly MAX_SQL_STRING_LOOKAHEAD_LINES = 5;
 
     constructor() {
         this.diagnosticCollection = vscode.languages.createDiagnosticCollection('duckdb-r-editor');
@@ -35,11 +37,35 @@ export class SQLDiagnosticsProvider implements vscode.CodeActionProvider {
         const processedRanges = new Set<string>();
 
         // Basic SQL validation
+        // Find SQL function calls and check positions in the next few lines for SQL strings
         for (let i = 0; i < document.lineCount; i++) {
-            const _line = document.lineAt(i);
-            const position = new vscode.Position(i, 0);
+            const line = document.lineAt(i);
+            const lineText = line.text;
 
-            const sqlContext = SQLStringDetector.isInsideSQLString(document, position);
+            // Skip lines without SQL function calls
+            if (!SQLDiagnosticsProvider.SQL_FUNCTION_PATTERN.test(lineText)) {
+                continue;
+            }
+
+            // Check this line and the next few lines for SQL strings (handles multi-line formatting)
+            for (let offset = 0; offset <= SQLDiagnosticsProvider.MAX_SQL_STRING_LOOKAHEAD_LINES && i + offset < document.lineCount; offset++) {
+                const checkLine = document.lineAt(i + offset);
+                const checkText = checkLine.text;
+
+                // Find first quote on this line as a starting point
+                const quoteMatch = checkText.match(/["'`]/);
+                if (quoteMatch && quoteMatch.index !== undefined) {
+                    // Check position right after the quote (inside the string)
+                    const checkPos = quoteMatch.index + 1;
+
+                    // Ensure the position is within the line text before using it
+                    if (checkPos >= checkText.length) {
+                        continue;
+                    }
+
+                    const position = new vscode.Position(i + offset, checkPos);
+                    const sqlContext = SQLStringDetector.isInsideSQLString(document, position);
+
             if (sqlContext) {
                 // Skip if we've already processed this SQL string
                 const rangeKey = `${sqlContext.range.start.line}:${sqlContext.range.start.character}-${sqlContext.range.end.line}:${sqlContext.range.end.character}`;
@@ -97,6 +123,8 @@ export class SQLDiagnosticsProvider implements vscode.CodeActionProvider {
                         diagnostic.code = 'sql-syntax';
                         diagnostics.push(diagnostic);
                     }
+                }
+                }
                 }
             }
         }
