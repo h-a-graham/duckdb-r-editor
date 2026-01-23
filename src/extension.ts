@@ -11,6 +11,9 @@ import { SQLBackgroundDecorator } from './sqlBackgroundDecorator';
 import { tryAcquirePositronApi } from '@posit-dev/positron';
 import { RConnectionInfo } from './types';
 import { isValidExtensionName, isValidConnectionName } from './utils/validation';
+import { RCodeExecutor } from './utils/rCodeExecutor';
+import { EXTENSION_ID, OUTPUT_CHANNEL_NAME, TIMING, R_TEMP_VAR_PREFIX } from './constants';
+import { getErrorMessage, isErrorType } from './utils/errorHandler';
 
 // Module-level state
 let schemaProvider: PositronSchemaProvider | undefined;
@@ -24,8 +27,7 @@ let previousTableCount: number = 0;
 let previousFunctionCount: number = 0;
 let shownEmptyDbWarning: boolean = false;
 
-// Constants
-const DEBOUNCE_DELAY_MS = 1500;
+// SQL patterns that indicate schema modifications
 const SCHEMA_MODIFY_PATTERNS = [
   /dbExecute\s*\(/i,                    // dbExecute(con, ...)
   /dbWriteTable\s*\(/i,                 // dbWriteTable(con, ...)
@@ -44,11 +46,11 @@ const EXTENSION_LOAD_PATTERNS = [
 
 export async function activate(context: vscode.ExtensionContext) {
   // Create output channel for logging
-  outputChannel = vscode.window.createOutputChannel('DuckDB R Editor');
+  outputChannel = vscode.window.createOutputChannel(OUTPUT_CHANNEL_NAME);
   context.subscriptions.push(outputChannel);
 
   outputChannel.appendLine('='.repeat(60));
-  outputChannel.appendLine('DuckDB R Editor - Positron Edition');
+  outputChannel.appendLine(`${OUTPUT_CHANNEL_NAME} - Positron Edition`);
   outputChannel.appendLine('='.repeat(60));
 
   // Check for Positron API (REQUIRED)
@@ -63,7 +65,7 @@ export async function activate(context: vscode.ExtensionContext) {
   outputChannel.appendLine('✓ Positron API detected');
 
   // Get configuration settings
-  const config = vscode.workspace.getConfiguration('duckdb-r-editor');
+  const config = vscode.workspace.getConfiguration(EXTENSION_ID);
 
   // Initialize function provider (Node.js DuckDB for function discovery)
   outputChannel.appendLine('Initializing function provider...');
@@ -192,9 +194,10 @@ export async function activate(context: vscode.ExtensionContext) {
             selected.connectionInfo.dbPath
           );
         }
-      } catch (err: any) {
-        outputChannel.appendLine(`✗ Failed to discover connections: ${err.message}`);
-        vscode.window.showErrorMessage(`Failed to discover R connections: ${err.message}`);
+      } catch (err) {
+        const errorMsg = getErrorMessage(err);
+        outputChannel.appendLine(`✗ Failed to discover connections: ${errorMsg}`);
+        vscode.window.showErrorMessage(`Failed to discover R connections: ${errorMsg}`);
       }
     }
   );
@@ -259,9 +262,10 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage(
           `✓ Extension '${extensionName}' loaded! ${funcCount} functions now available for autocomplete.`
         );
-      } catch (err: any) {
+      } catch (err) {
+        const errorMsg = getErrorMessage(err);
         vscode.window.showErrorMessage(
-          `Failed to load extension '${extensionName}': ${err.message}\n\n` +
+          `Failed to load extension '${extensionName}': ${errorMsg}\n\n` +
           `Note: If this is a community extension, load it in your R session instead:\n` +
           `dbExecute(con, "INSTALL ${extensionName} FROM community; LOAD ${extensionName};")`
         );
@@ -331,7 +335,7 @@ async function discoverRConnections(): Promise<RConnectionInfo[]> {
   const tmpDir = os.tmpdir();
   const timestamp = Date.now();
   const tempFilePath = path.join(tmpDir, `duckdb-connections-${timestamp}.json`);
-  const tempFilePathR = tempFilePath.replace(/\\/g, '/');
+  const tempFilePathR = RCodeExecutor.toRPath(tempFilePath);
 
   const rCode = `
 tryCatch({
@@ -487,9 +491,10 @@ async function connectToDatabase(connectionName: string, dbPath: string): Promis
         outputChannel.appendLine(`    - ${col.name}: ${col.type}`);
       });
     }
-  } catch (err: any) {
-    outputChannel.appendLine(`✗ Connection failed: ${err.message}`);
-    vscode.window.showErrorMessage(`Failed to connect: ${err.message}`);
+  } catch (err) {
+    const errorMsg = getErrorMessage(err);
+    outputChannel.appendLine(`✗ Connection failed: ${errorMsg}`);
+    vscode.window.showErrorMessage(`Failed to connect: ${errorMsg}`);
     throw err;
   }
 }
@@ -522,11 +527,12 @@ async function refreshSchema(): Promise<void> {
       );
       outputChannel.appendLine(`✓ Refreshed: ${tableCount} tables, ${funcCount} functions`);
     }
-  } catch (err: any) {
-    outputChannel.appendLine(`✗ Refresh failed: ${err.message}`);
+  } catch (err) {
+    const errorMsg = getErrorMessage(err);
+    outputChannel.appendLine(`✗ Refresh failed: ${errorMsg}`);
 
     // Check if the error is due to an invalid/closed connection
-    if (err.message && (err.message.includes('Invalid connection') || err.message.includes('not found in R session'))) {
+    if (isErrorType(err, 'Invalid connection', 'not found in R session')) {
       // Connection is no longer valid - clean up
       if (schemaProvider) {
         schemaProvider.dispose();
@@ -548,7 +554,7 @@ async function refreshSchema(): Promise<void> {
       });
     } else {
       // Some other error - show the full error message
-      vscode.window.showErrorMessage(`Failed to refresh schema: ${err.message}`);
+      vscode.window.showErrorMessage(`Failed to refresh schema: ${errorMsg}`);
     }
   }
 }
@@ -653,11 +659,11 @@ function setupAutoRefresh(positronApi: any, context: vscode.ExtensionContext): v
           // Update tracked count
           previousFunctionCount = newFunctionCount;
         }
-      } catch (error: any) {
-        outputChannel.appendLine(`[Auto-refresh] Failed: ${error.message}`);
+      } catch (error) {
+        outputChannel.appendLine(`[Auto-refresh] Failed: ${getErrorMessage(error)}`);
         // Don't show error to user - auto-refresh is background operation
       }
-    }, DEBOUNCE_DELAY_MS);
+    }, TIMING.DEBOUNCE_DELAY_MS);
   };
 
   // Listen to code execution events
