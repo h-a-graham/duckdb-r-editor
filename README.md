@@ -44,10 +44,28 @@ Write DuckDB SQL with full IDE support right inside R strings. Take full advanta
 **Or Build from Source**
 
 ``` bash
-git clone https://github.com/h-a-graham/duckdb-r-editor.git
+git clone https://github.com/belian-earth/duckdb-r-editor.git
 cd duckdb-r-editor
-npm install && npm run vsce:package
+npm install
 ```
+
+**With Make** (Linux/Mac/WSL - recommended):
+``` bash
+make              # Build and package
+make quick        # Quick build (skip linting)
+make help         # See all commands
+```
+
+**Without Make** (universal):
+``` bash
+npm run compile            # Compile TypeScript
+npm run lint               # Run linter
+npm run vsce:package       # Create .vsix file
+```
+
+The `.vsix` file will be created in the project root. Install it via Positron: Extensions → ... → Install from VSIX
+
+*Note: Windows users can install Make via [Chocolatey](https://chocolatey.org/) (`choco install make`) or use [WSL](https://docs.microsoft.com/en-us/windows/wsl/)*
 
 ### 2. Connect in R
 
@@ -159,10 +177,6 @@ This extension provides:
 
 ------------------------------------------------------------------------
 
-## License
-
-MIT
-
 ## Acknowledgments
 
 - **DuckDB** - Analytical database
@@ -174,4 +188,15 @@ MIT
 
 ## Contributing
 
-[Open an issue on GitHub](https://github.com/h-a-graham/duckdb-r-editor/issues)
+Contributions welcome! See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for build instructions and development workflow.
+
+To contribute:
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes and test thoroughly
+4. Ensure code passes linting: `make build` or `npm run lint`
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+[Open an issue on GitHub](https://github.com/h-a-graham/duckdb-r-editor/issues) for bug reports or feature requests.

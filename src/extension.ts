@@ -9,6 +9,12 @@ import { DocumentCache } from './documentCache';
 import { SQLSemanticTokenProvider } from './semanticTokenProvider';
 import { SQLBackgroundDecorator } from './sqlBackgroundDecorator';
 import { tryAcquirePositronApi } from '@posit-dev/positron';
+import { RConnectionInfo } from './types';
+import { isValidExtensionName, isValidConnectionName } from './utils/validation';
+import { RCodeExecutor } from './utils/rCodeExecutor';
+import { EXTENSION_ID, OUTPUT_CHANNEL_NAME, TIMING } from './constants';
+import { getErrorMessage, isErrorType } from './utils/errorHandler';
+import { RCodeTemplates } from './utils/rCodeTemplates';
 
 // Module-level state
 let schemaProvider: PositronSchemaProvider | undefined;
@@ -22,8 +28,7 @@ let previousTableCount: number = 0;
 let previousFunctionCount: number = 0;
 let shownEmptyDbWarning: boolean = false;
 
-// Constants
-const DEBOUNCE_DELAY_MS = 1500;
+// SQL patterns that indicate schema modifications
 const SCHEMA_MODIFY_PATTERNS = [
   /dbExecute\s*\(/i,                    // dbExecute(con, ...)
   /dbWriteTable\s*\(/i,                 // dbWriteTable(con, ...)
@@ -40,19 +45,13 @@ const EXTENSION_LOAD_PATTERNS = [
   /\bLOAD\s+\w+/i,                      // LOAD spatial
 ];
 
-interface RConnectionInfo {
-  name: string;
-  dbPath: string;
-  tableCount: number;
-}
-
 export async function activate(context: vscode.ExtensionContext) {
   // Create output channel for logging
-  outputChannel = vscode.window.createOutputChannel('DuckDB R Editor');
+  outputChannel = vscode.window.createOutputChannel(OUTPUT_CHANNEL_NAME);
   context.subscriptions.push(outputChannel);
 
   outputChannel.appendLine('='.repeat(60));
-  outputChannel.appendLine('DuckDB R Editor - Positron Edition');
+  outputChannel.appendLine(`${OUTPUT_CHANNEL_NAME} - Positron Edition`);
   outputChannel.appendLine('='.repeat(60));
 
   // Check for Positron API (REQUIRED)
@@ -67,7 +66,7 @@ export async function activate(context: vscode.ExtensionContext) {
   outputChannel.appendLine('✓ Positron API detected');
 
   // Get configuration settings
-  const config = vscode.workspace.getConfiguration('duckdb-r-editor');
+  const config = vscode.workspace.getConfiguration(EXTENSION_ID);
 
   // Initialize function provider (Node.js DuckDB for function discovery)
   outputChannel.appendLine('Initializing function provider...');
@@ -172,8 +171,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
         // Prioritize "con" at the top
         connections.sort((a, b) => {
-          if (a.name === 'con') return -1;
-          if (b.name === 'con') return 1;
+          if (a.name === 'con') {
+            return -1;
+          }
+          if (b.name === 'con') {
+            return 1;
+          }
           return a.name.localeCompare(b.name);
         });
 
@@ -196,9 +199,10 @@ export async function activate(context: vscode.ExtensionContext) {
             selected.connectionInfo.dbPath
           );
         }
-      } catch (err: any) {
-        outputChannel.appendLine(`✗ Failed to discover connections: ${err.message}`);
-        vscode.window.showErrorMessage(`Failed to discover R connections: ${err.message}`);
+      } catch (err) {
+        const errorMsg = getErrorMessage(err);
+        outputChannel.appendLine(`✗ Failed to discover connections: ${errorMsg}`);
+        vscode.window.showErrorMessage(`Failed to discover R connections: ${errorMsg}`);
       }
     }
   );
@@ -246,7 +250,7 @@ export async function activate(context: vscode.ExtensionContext) {
             return 'Extension name is required';
           }
           // Validate format to prevent SQL injection
-          if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(value.trim())) {
+          if (!isValidExtensionName(value.trim())) {
             return 'Extension name must start with a letter and contain only letters, numbers, and underscores';
           }
           return null;
@@ -263,9 +267,10 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage(
           `✓ Extension '${extensionName}' loaded! ${funcCount} functions now available for autocomplete.`
         );
-      } catch (err: any) {
+      } catch (err) {
+        const errorMsg = getErrorMessage(err);
         vscode.window.showErrorMessage(
-          `Failed to load extension '${extensionName}': ${err.message}\n\n` +
+          `Failed to load extension '${extensionName}': ${errorMsg}\n\n` +
           `Note: If this is a community extension, load it in your R session instead:\n` +
           `dbExecute(con, "INSTALL ${extensionName} FROM community; LOAD ${extensionName};")`
         );
@@ -325,12 +330,6 @@ export async function activate(context: vscode.ExtensionContext) {
   outputChannel.appendLine('Commands available: "R SQL: Connect to DuckDB Database", "R SQL: Refresh Database Schema"');
 }
 
-interface RConnectionInfo {
-  name: string;
-  dbPath: string;
-  tableCount: number;
-}
-
 async function discoverRConnections(): Promise<RConnectionInfo[]> {
   const positronApi = tryAcquirePositronApi();
   if (!positronApi) {
@@ -341,62 +340,10 @@ async function discoverRConnections(): Promise<RConnectionInfo[]> {
   const tmpDir = os.tmpdir();
   const timestamp = Date.now();
   const tempFilePath = path.join(tmpDir, `duckdb-connections-${timestamp}.json`);
-  const tempFilePathR = tempFilePath.replace(/\\/g, '/');
+  const tempFilePathR = RCodeExecutor.toRPath(tempFilePath);
 
-  const rCode = `
-tryCatch({
-    .dbre_all_objs <- ls(envir = .GlobalEnv)
-    .dbre_connections <- list()
-
-    for (.dbre_obj_name in .dbre_all_objs) {
-        .dbre_tmp_obj <- get(.dbre_obj_name, envir = .GlobalEnv)
-        if (inherits(.dbre_tmp_obj, "duckdb_connection")) {
-            # Get database path
-            .dbre_db_path <- tryCatch({
-                .dbre_tmp_obj@driver@dbdir
-            }, error = function(e) {
-                ":memory:"
-            })
-
-            # Count tables
-            .dbre_table_count <- tryCatch({
-                length(DBI::dbListTables(.dbre_tmp_obj))
-            }, error = function(e) {
-                0
-            })
-
-            .dbre_connections[[length(.dbre_connections) + 1]] <- list(
-                name = .dbre_obj_name,
-                dbPath = .dbre_db_path,
-                tableCount = .dbre_table_count
-            )
-        }
-    }
-
-    # Write to file (no console output in silent mode)
-    .dbre_temp_file <- "${tempFilePathR}"
-
-    if (requireNamespace("jsonlite", quietly = TRUE)) {
-        jsonlite::write_json(.dbre_connections, .dbre_temp_file, auto_unbox = TRUE)
-    } else {
-        .dbre_json_output <- paste0("[", paste(sapply(.dbre_connections, function(c) {
-            sprintf('{"name":"%s","dbPath":"%s","tableCount":%d}',
-                c$name, c$dbPath, c$tableCount)
-        }), collapse = ","), "]")
-        writeLines(.dbre_json_output, .dbre_temp_file)
-    }
-
-    # Cleanup: Remove all temporary variables
-    rm(.dbre_all_objs, .dbre_connections, .dbre_obj_name, .dbre_tmp_obj, .dbre_db_path, .dbre_table_count, .dbre_temp_file)
-    if (exists(".dbre_json_output")) rm(.dbre_json_output)
-
-    invisible(NULL)
-}, error = function(e) {
-    # Silent error - write empty array to file
-    writeLines("[]", "${tempFilePathR}")
-    invisible(NULL)
-})
-  `.trim();
+  // Generate R code to discover all DuckDB connections
+  const rCode = RCodeTemplates.discoverConnections(tempFilePathR);
 
   await positronApi.runtime.executeCode('r', rCode, false, false, 'silent' as any, undefined, {});
 
@@ -412,9 +359,8 @@ tryCatch({
     await vscode.workspace.fs.delete(fileUri);
 
     // SECURITY: Filter out connections with invalid names to prevent code injection
-    // R identifiers must start with letter and contain only letters, numbers, dots, underscores
     const validConnections = connections.filter(conn => {
-      const isValid = /^[a-zA-Z][a-zA-Z0-9._]*$/.test(conn.name);
+      const isValid = isValidConnectionName(conn.name);
       if (!isValid) {
         outputChannel.appendLine(`⚠️  Skipping connection with invalid name: "${conn.name}"`);
       }
@@ -431,7 +377,9 @@ tryCatch({
     // Try to cleanup temp file even on error
     try {
       await vscode.workspace.fs.delete(fileUri);
-    } catch {}
+    } catch {
+      // Ignore cleanup errors
+    }
 
     // Re-throw if it's our "no connections" error
     if (error.message === 'No DuckDB connections found in R session') {
@@ -498,9 +446,10 @@ async function connectToDatabase(connectionName: string, dbPath: string): Promis
         outputChannel.appendLine(`    - ${col.name}: ${col.type}`);
       });
     }
-  } catch (err: any) {
-    outputChannel.appendLine(`✗ Connection failed: ${err.message}`);
-    vscode.window.showErrorMessage(`Failed to connect: ${err.message}`);
+  } catch (err) {
+    const errorMsg = getErrorMessage(err);
+    outputChannel.appendLine(`✗ Connection failed: ${errorMsg}`);
+    vscode.window.showErrorMessage(`Failed to connect: ${errorMsg}`);
     throw err;
   }
 }
@@ -533,11 +482,12 @@ async function refreshSchema(): Promise<void> {
       );
       outputChannel.appendLine(`✓ Refreshed: ${tableCount} tables, ${funcCount} functions`);
     }
-  } catch (err: any) {
-    outputChannel.appendLine(`✗ Refresh failed: ${err.message}`);
+  } catch (err) {
+    const errorMsg = getErrorMessage(err);
+    outputChannel.appendLine(`✗ Refresh failed: ${errorMsg}`);
 
     // Check if the error is due to an invalid/closed connection
-    if (err.message && (err.message.includes('Invalid connection') || err.message.includes('not found in R session'))) {
+    if (isErrorType(err, 'Invalid connection', 'not found in R session')) {
       // Connection is no longer valid - clean up
       if (schemaProvider) {
         schemaProvider.dispose();
@@ -559,7 +509,7 @@ async function refreshSchema(): Promise<void> {
       });
     } else {
       // Some other error - show the full error message
-      vscode.window.showErrorMessage(`Failed to refresh schema: ${err.message}`);
+      vscode.window.showErrorMessage(`Failed to refresh schema: ${errorMsg}`);
     }
   }
 }
@@ -664,11 +614,11 @@ function setupAutoRefresh(positronApi: any, context: vscode.ExtensionContext): v
           // Update tracked count
           previousFunctionCount = newFunctionCount;
         }
-      } catch (error: any) {
-        outputChannel.appendLine(`[Auto-refresh] Failed: ${error.message}`);
+      } catch (error) {
+        outputChannel.appendLine(`[Auto-refresh] Failed: ${getErrorMessage(error)}`);
         // Don't show error to user - auto-refresh is background operation
       }
-    }, DEBOUNCE_DELAY_MS);
+    }, TIMING.DEBOUNCE_DELAY_MS);
   };
 
   // Listen to code execution events

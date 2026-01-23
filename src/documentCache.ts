@@ -83,56 +83,9 @@ export class DocumentCache {
     }
 
     /**
-     * Find SQL region at a specific position using cache
-     */
-    public findRegionAtPosition(
-        document: vscode.TextDocument,
-        position: vscode.Position
-    ): CachedSQLRegion | null {
-        const regions = this.getCachedRegions(document);
-        if (!regions) {
-            return null;
-        }
-
-        // Find region that contains the position
-        for (const region of regions) {
-            if (region.range.contains(position)) {
-                return region;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Get all SQL regions in a document (from cache or parse)
-     * This is used by the semantic token provider
-     */
-    public getAllRegions(document: vscode.TextDocument): CachedSQLRegion[] {
-        // Try cache first
-        const cached = this.getCachedRegions(document);
-        if (cached) {
-            return cached;
-        }
-
-        // Cache miss - caller should parse and update cache
-        return [];
-    }
-
-    /**
      * Generate unique key for document
      */
     private getDocumentKey(document: vscode.TextDocument): string {
         return document.uri.toString();
-    }
-
-    /**
-     * Get cache statistics (for debugging)
-     */
-    public getStats(): { size: number; keys: string[] } {
-        return {
-            size: this.cache.size,
-            keys: Array.from(this.cache.keys())
-        };
     }
 }

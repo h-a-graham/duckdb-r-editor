@@ -131,19 +131,25 @@ export class SQLStringDetector {
             return null;
         }
 
-        // IMPORTANT: Validate that the original position is actually within this string range
-        // If the position is AFTER the closing quote, we found a closing quote from a previous string
-        // and mistook it for an opening quote
-        const closePos = new vscode.Position(closeQuoteLine, closeQuoteChar);
-        if (position.isAfter(closePos)) {
-            // Original position is after the "closing" quote, meaning we found the wrong string
-            // This happens when we backward-search and hit a closing quote from an earlier string
-            return null;
-        }
-
         // Create range from opening to closing quote (excluding the quotes themselves)
         const startPos = new vscode.Position(openQuoteLine, openQuoteChar + 1);
         const endPos = new vscode.Position(closeQuoteLine, closeQuoteChar);
+
+        // Safety check: ensure opening quote is before closing quote
+        const openPos = new vscode.Position(openQuoteLine, openQuoteChar);
+        const closePos = new vscode.Position(closeQuoteLine, closeQuoteChar);
+        if (!openPos.isBefore(closePos)) {
+            // Found quotes in wrong order - backward search probably found a closing quote
+            return null;
+        }
+
+        // IMPORTANT: Validate that the original position is actually within this string range
+        // Position must be >= start and < end (content is between quotes, not including closing quote)
+        if (position.isBefore(startPos) || position.isAfterOrEqual(endPos)) {
+            // Position is outside the string content - probably found a closing quote and treated it as opening
+            // OR position is at/after the closing quote position
+            return null;
+        }
 
         return new vscode.Range(startPos, endPos);
     }
@@ -155,7 +161,7 @@ export class SQLStringDetector {
      */
     private static findDBIFunctionContext(document: vscode.TextDocument, position: vscode.Position): string | null {
         // Look backwards from the string position to find function call
-        let currentLine = position.line;
+        const currentLine = position.line;
         let searchText = '';
         const startLine = Math.max(0, currentLine - PARSING_LIMITS.CONTEXT_LINE_LOOKBACK);
 
