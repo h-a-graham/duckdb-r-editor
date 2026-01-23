@@ -1,6 +1,6 @@
 # Development Guide
 
-## Building & Testing
+## Building
 
 The project includes a Makefile for convenient development:
 
@@ -10,7 +10,6 @@ make build        # Compile and lint (no package)
 make quick        # Quick iteration (compile + package, skip lint)
 make compile      # Just compile TypeScript
 make lint         # Just run ESLint
-make test         # Run tests
 make clean        # Remove build artifacts
 make rebuild      # Clean rebuild from scratch
 make help         # Show all commands
@@ -20,7 +19,6 @@ Without Make, use npm scripts directly:
 ```bash
 npm run compile       # Compile TypeScript
 npm run lint          # Run ESLint
-npm test              # Run tests
 npm run vsce:package  # Create .vsix package
 ```
 
@@ -59,7 +57,7 @@ src/
    - Run `make lint` or `npm run lint` to check code quality
 
 3. **Test Locally**
-   - Press F5 in VS Code/Positron to launch Extension Development Host
+   - Launch Extension Development Host
    - Or package and install: `make quick` then install the `.vsix`
 
 4. **Before Committing**
@@ -75,29 +73,11 @@ src/
 - Use const assertions for constant objects
 - Prefer utility functions over duplicated code
 
-## Testing
-
-Run tests with:
-```bash
-npm test
-# or
-make test
-```
-
-## Debugging
-
-In VS Code/Positron:
-1. Open the project
-2. Press F5 to launch Extension Development Host
-3. Set breakpoints in TypeScript source files
-4. Use Debug Console to inspect variables
-
 ## CI/CD
 
 The project uses GitHub Actions for:
 - Linting (ESLint)
 - Type checking (TypeScript)
 - Building
-- Running tests
 
 All checks must pass before merging PRs.

@@ -1,6 +1,6 @@
 # Makefile for DuckDB R Editor VSCode Extension
 
-.PHONY: all build compile lint test package clean install help
+.PHONY: all build compile lint package clean install help
 
 # Default target - build and package
 all: build package
@@ -17,11 +17,6 @@ compile:
 lint:
 	@echo "Running linter..."
 	@npm run lint
-
-# Run tests
-test:
-	@echo "Running tests..."
-	@npm test
 
 # Package extension into .vsix file
 package:
@@ -55,7 +50,6 @@ help:
 	@echo "  make build        - Compile and lint"
 	@echo "  make compile      - Compile TypeScript"
 	@echo "  make lint         - Run ESLint"
-	@echo "  make test         - Run tests"
 	@echo "  make package      - Create .vsix package"
 	@echo "  make quick        - Quick compile + package (skip lint)"
 	@echo "  make clean        - Remove build artifacts"
