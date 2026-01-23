@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as duckdb from 'duckdb';
 import { DuckDBFunction } from './types';
+import { validateExtensionName } from './utils/validation';
 
 /**
  * Provides DuckDB function discovery using Node.js DuckDB bindings
@@ -90,13 +91,7 @@ export class DuckDBFunctionProvider implements vscode.Disposable {
         }
 
         // SECURITY: Validate extension name to prevent SQL injection
-        // DuckDB extension names are alphanumeric with underscores only
-        if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(extensionName)) {
-            throw new Error(
-                `Invalid extension name: "${extensionName}". ` +
-                `Extension names must start with a letter and contain only letters, numbers, and underscores.`
-            );
-        }
+        validateExtensionName(extensionName);
 
         try {
             await this.query(`INSTALL ${extensionName}`);

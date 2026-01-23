@@ -41,6 +41,15 @@ export interface FunctionProvider {
 }
 
 /**
+ * R connection information
+ */
+export interface RConnectionInfo {
+    name: string;
+    dbPath: string;
+    tableCount: number;
+}
+
+/**
  * R DBI package functions that contain SQL strings
  */
 export const DBI_FUNCTIONS = [

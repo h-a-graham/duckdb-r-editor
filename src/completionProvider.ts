@@ -266,14 +266,6 @@ export class SQLCompletionProvider implements vscode.CompletionItemProvider {
   }
 
   /**
-   * Extract table name from FROM clause in the query
-   */
-  private getTableFromQuery(text: string): string | null {
-    const tables = this.getTablesFromQuery(text);
-    return tables.length > 0 ? tables[0] : null;
-  }
-
-  /**
    * Extract all table names from FROM and JOIN clauses
    * Handles aliases: "FROM quakes AS q", "FROM quakes q", "JOIN penguins p"
    */

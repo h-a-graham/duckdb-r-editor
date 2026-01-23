@@ -9,6 +9,8 @@ import { DocumentCache } from './documentCache';
 import { SQLSemanticTokenProvider } from './semanticTokenProvider';
 import { SQLBackgroundDecorator } from './sqlBackgroundDecorator';
 import { tryAcquirePositronApi } from '@posit-dev/positron';
+import { RConnectionInfo } from './types';
+import { isValidExtensionName, isValidConnectionName } from './utils/validation';
 
 // Module-level state
 let schemaProvider: PositronSchemaProvider | undefined;
@@ -39,12 +41,6 @@ const EXTENSION_LOAD_PATTERNS = [
   /\bINSTALL\s+\w+/i,                   // INSTALL spatial
   /\bLOAD\s+\w+/i,                      // LOAD spatial
 ];
-
-interface RConnectionInfo {
-  name: string;
-  dbPath: string;
-  tableCount: number;
-}
 
 export async function activate(context: vscode.ExtensionContext) {
   // Create output channel for logging
@@ -246,7 +242,7 @@ export async function activate(context: vscode.ExtensionContext) {
             return 'Extension name is required';
           }
           // Validate format to prevent SQL injection
-          if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(value.trim())) {
+          if (!isValidExtensionName(value.trim())) {
             return 'Extension name must start with a letter and contain only letters, numbers, and underscores';
           }
           return null;
@@ -323,12 +319,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
   outputChannel.appendLine('Extension activation complete!');
   outputChannel.appendLine('Commands available: "R SQL: Connect to DuckDB Database", "R SQL: Refresh Database Schema"');
-}
-
-interface RConnectionInfo {
-  name: string;
-  dbPath: string;
-  tableCount: number;
 }
 
 async function discoverRConnections(): Promise<RConnectionInfo[]> {
@@ -412,9 +402,8 @@ tryCatch({
     await vscode.workspace.fs.delete(fileUri);
 
     // SECURITY: Filter out connections with invalid names to prevent code injection
-    // R identifiers must start with letter and contain only letters, numbers, dots, underscores
     const validConnections = connections.filter(conn => {
-      const isValid = /^[a-zA-Z][a-zA-Z0-9._]*$/.test(conn.name);
+      const isValid = isValidConnectionName(conn.name);
       if (!isValid) {
         outputChannel.appendLine(`⚠️  Skipping connection with invalid name: "${conn.name}"`);
       }

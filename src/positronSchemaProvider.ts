@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ColumnInfo } from './types';
 import * as os from 'os';
 import * as path from 'path';
+import { validateConnectionName } from './utils/validation';
 
 /**
  * Provides DuckDB schema by querying active R session via Positron API
@@ -28,14 +29,7 @@ export class PositronSchemaProvider implements vscode.Disposable {
      */
     async connect(connectionName: string, dbPath: string): Promise<void> {
         // SECURITY: Validate connection name to prevent code injection
-        // R identifiers must start with letter or dot (not followed by number)
-        // and contain only letters, numbers, dots, and underscores
-        if (!/^[a-zA-Z][a-zA-Z0-9._]*$/.test(connectionName)) {
-            throw new Error(
-                `Invalid connection name: "${connectionName}". ` +
-                `R connection names must start with a letter and contain only letters, numbers, dots, and underscores.`
-            );
-        }
+        validateConnectionName(connectionName);
 
         this.connectionName = connectionName;
         this.dbPath = dbPath;
