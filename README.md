@@ -190,59 +190,15 @@ MIT
 
 ------------------------------------------------------------------------
 
-## Development
-
-### Building & Testing
-
-The project includes a Makefile for convenient development:
-
-```bash
-make              # Full build: compile → lint → package
-make build        # Compile and lint (no package)
-make quick        # Quick iteration (compile + package, skip lint)
-make compile      # Just compile TypeScript
-make lint         # Just run ESLint
-make test         # Run tests
-make clean        # Remove build artifacts
-make rebuild      # Clean rebuild from scratch
-make help         # Show all commands
-```
-
-Without Make, use npm scripts directly:
-```bash
-npm run compile       # Compile TypeScript
-npm run lint          # Run ESLint
-npm test              # Run tests
-npm run vsce:package  # Create .vsix package
-```
-
-### Project Structure
-
-```
-src/
-├── extension.ts              # Main entry point
-├── diagnosticsProvider.ts    # SQL validation
-├── completionProvider.ts     # Autocomplete
-├── semanticTokenProvider.ts  # Syntax highlighting
-├── sqlBackgroundDecorator.ts # Background colors
-├── positronSchemaProvider.ts # R session schema queries
-├── functionProvider.ts       # DuckDB function discovery
-├── constants.ts              # Extension constants
-├── types.ts                  # TypeScript interfaces
-└── utils/
-    ├── rCodeTemplates.ts     # R code generation
-    ├── validation.ts         # Input validation
-    ├── errorHandler.ts       # Error utilities
-    └── rCodeExecutor.ts      # R execution helpers
-```
-
 ## Contributing
 
-Contributions welcome! Please:
+Contributions welcome! See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for build instructions and development workflow.
+
+To contribute:
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes and test thoroughly
-4. Run `make build` to ensure code passes linting
+4. Ensure code passes linting: `make build` or `npm run lint`
 5. Commit your changes (`git commit -m 'Add amazing feature'`)
 6. Push to the branch (`git push origin feature/amazing-feature`)
 7. Open a Pull Request
