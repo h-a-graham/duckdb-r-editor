@@ -29,7 +29,7 @@ export function isValidConnectionName(name: string): boolean {
  * @returns true if valid, false otherwise
  */
 export function isValidRIdentifier(name: string): boolean {
-    return /^[a-zA-Z.][a-zA-Z0-9._]*$/.test(name);
+    return /^([a-zA-Z]|\.[a-zA-Z_])[a-zA-Z0-9._]*$/.test(name);
 }
 
 /**
