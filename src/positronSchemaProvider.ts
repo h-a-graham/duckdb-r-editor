@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { validateConnectionName } from './utils/validation';
 import { RCodeExecutor } from './utils/rCodeExecutor';
+import { RCodeTemplates } from './utils/rCodeTemplates';
 
 /**
  * Provides DuckDB schema by querying active R session via Positron API
@@ -56,81 +57,16 @@ export class PositronSchemaProvider implements vscode.Disposable {
             throw new Error('No schema file path set. Call connect() first.');
         }
 
+        if (!this.connectionName) {
+            throw new Error('No connection name set. Call connect() first.');
+        }
+
         const targetConnection = this.connectionName;
         // Normalize file path for R (forward slashes)
         const schemaFilePath = RCodeExecutor.toRPath(this.schemaFilePath);
 
-        const rCode = `
-tryCatch({
-    # Get the specific connection object
-    if (!exists("${targetConnection}", envir = .GlobalEnv)) {
-        stop("Connection '${targetConnection}' not found in R session")
-    }
-
-    .dbre_tmp_conn <- get("${targetConnection}", envir = .GlobalEnv)
-
-    if (!inherits(.dbre_tmp_conn, "duckdb_connection")) {
-        stop("Object '${targetConnection}' is not a DuckDB connection")
-    }
-
-    # Get schema information
-    if (!requireNamespace("DBI", quietly = TRUE)) {
-        stop("DBI package not available")
-    }
-
-    # Check if connection is still valid
-    if (!DBI::dbIsValid(.dbre_tmp_conn)) {
-        stop("Connection '${targetConnection}' is no longer valid. It may have been closed.")
-    }
-
-    tables <- DBI::dbListTables(.dbre_tmp_conn)
-    result <- list()
-
-    for (table in tables) {
-        tryCatch({
-            col_info <- DBI::dbGetQuery(.dbre_tmp_conn, sprintf(
-                "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = '%s' AND table_schema = 'main' ORDER BY ordinal_position",
-                table
-            ))
-
-            for (i in 1:nrow(col_info)) {
-                result[[length(result) + 1]] <- list(
-                    table_name = table,
-                    column_name = col_info$column_name[i],
-                    data_type = col_info$data_type[i],
-                    is_nullable = col_info$is_nullable[i]
-                )
-            }
-        }, error = function(e) {
-            # Silently skip tables that can't be queried
-        })
-    }
-
-    # Write to file (no console output in silent mode)
-    schema_file_path <- "${schemaFilePath}"
-
-    if (requireNamespace("jsonlite", quietly = TRUE)) {
-        jsonlite::write_json(result, schema_file_path, auto_unbox = TRUE, pretty = TRUE)
-    } else {
-        json_output <- if (length(result) == 0) {
-            "[]"
-        } else {
-            paste0("[", paste(sapply(result, function(r) {
-                sprintf('{"table_name":"%s","column_name":"%s","data_type":"%s","is_nullable":"%s"}',
-                    r$table_name, r$column_name, r$data_type, r$is_nullable)
-            }), collapse = ","), "]")
-        }
-        writeLines(json_output, schema_file_path)
-    }
-
-    # Cleanup: Remove temporary connection reference
-    rm(.dbre_tmp_conn)
-
-    invisible(NULL)
-}, error = function(e) {
-    stop(e$message)
-})
-        `.trim();
+        // Generate R code to refresh schema information
+        const rCode = RCodeTemplates.refreshSchema(targetConnection, schemaFilePath);
 
         try {
             let errorOutput = '';
@@ -256,52 +192,15 @@ tryCatch({
             return;
         }
 
+        if (!this.connectionName) {
+            return;
+        }
+
         const targetConnection = this.connectionName;
         const functionsFilePath = RCodeExecutor.toRPath(this.functionsFilePath);
 
-        const rCode = `
-tryCatch({
-    if (!exists("${targetConnection}", envir = .GlobalEnv)) {
-        stop("Connection '${targetConnection}' not found in R session")
-    }
-
-    .dbre_tmp_conn <- get("${targetConnection}", envir = .GlobalEnv)
-
-    if (!inherits(.dbre_tmp_conn, "duckdb_connection")) {
-        stop("Object '${targetConnection}' is not a DuckDB connection")
-    }
-
-    # Check if connection is still valid
-    if (!DBI::dbIsValid(.dbre_tmp_conn)) {
-        stop("Connection '${targetConnection}' is no longer valid. It may have been closed.")
-    }
-
-    # Query all functions from DuckDB
-    .dbre_functions <- DBI::dbGetQuery(.dbre_tmp_conn, "SELECT * FROM duckdb_functions()")
-
-    # Write to file
-    .dbre_func_file <- "${functionsFilePath}"
-
-    if (requireNamespace("jsonlite", quietly = TRUE)) {
-        jsonlite::write_json(.dbre_functions, .dbre_func_file, auto_unbox = TRUE, pretty = FALSE)
-    } else {
-        # Fallback: write simplified JSON
-        .dbre_json <- paste0("[", paste(apply(.dbre_functions, 1, function(row) {
-            sprintf('{"function_name":"%s","function_type":"%s","description":"%s","return_type":"%s"}',
-                row["function_name"], row["function_type"],
-                gsub('"', '\\\\"', row["description"]), row["return_type"])
-        }), collapse = ","), "]")
-        writeLines(.dbre_json, .dbre_func_file)
-    }
-
-    rm(.dbre_tmp_conn, .dbre_functions, .dbre_func_file)
-    if (exists(".dbre_json")) rm(.dbre_json)
-
-    invisible(NULL)
-}, error = function(e) {
-    stop(e$message)
-})
-        `.trim();
+        // Generate R code to refresh function information
+        const rCode = RCodeTemplates.refreshFunctions(targetConnection, functionsFilePath);
 
         try {
             let errorOutput = '';

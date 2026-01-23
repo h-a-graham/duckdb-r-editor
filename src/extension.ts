@@ -14,6 +14,7 @@ import { isValidExtensionName, isValidConnectionName } from './utils/validation'
 import { RCodeExecutor } from './utils/rCodeExecutor';
 import { EXTENSION_ID, OUTPUT_CHANNEL_NAME, TIMING, R_TEMP_VAR_PREFIX } from './constants';
 import { getErrorMessage, isErrorType } from './utils/errorHandler';
+import { RCodeTemplates } from './utils/rCodeTemplates';
 
 // Module-level state
 let schemaProvider: PositronSchemaProvider | undefined;
@@ -337,60 +338,8 @@ async function discoverRConnections(): Promise<RConnectionInfo[]> {
   const tempFilePath = path.join(tmpDir, `duckdb-connections-${timestamp}.json`);
   const tempFilePathR = RCodeExecutor.toRPath(tempFilePath);
 
-  const rCode = `
-tryCatch({
-    .dbre_all_objs <- ls(envir = .GlobalEnv)
-    .dbre_connections <- list()
-
-    for (.dbre_obj_name in .dbre_all_objs) {
-        .dbre_tmp_obj <- get(.dbre_obj_name, envir = .GlobalEnv)
-        if (inherits(.dbre_tmp_obj, "duckdb_connection")) {
-            # Get database path
-            .dbre_db_path <- tryCatch({
-                .dbre_tmp_obj@driver@dbdir
-            }, error = function(e) {
-                ":memory:"
-            })
-
-            # Count tables
-            .dbre_table_count <- tryCatch({
-                length(DBI::dbListTables(.dbre_tmp_obj))
-            }, error = function(e) {
-                0
-            })
-
-            .dbre_connections[[length(.dbre_connections) + 1]] <- list(
-                name = .dbre_obj_name,
-                dbPath = .dbre_db_path,
-                tableCount = .dbre_table_count
-            )
-        }
-    }
-
-    # Write to file (no console output in silent mode)
-    .dbre_temp_file <- "${tempFilePathR}"
-
-    if (requireNamespace("jsonlite", quietly = TRUE)) {
-        jsonlite::write_json(.dbre_connections, .dbre_temp_file, auto_unbox = TRUE)
-    } else {
-        .dbre_json_output <- paste0("[", paste(sapply(.dbre_connections, function(c) {
-            sprintf('{"name":"%s","dbPath":"%s","tableCount":%d}',
-                c$name, c$dbPath, c$tableCount)
-        }), collapse = ","), "]")
-        writeLines(.dbre_json_output, .dbre_temp_file)
-    }
-
-    # Cleanup: Remove all temporary variables
-    rm(.dbre_all_objs, .dbre_connections, .dbre_obj_name, .dbre_tmp_obj, .dbre_db_path, .dbre_table_count, .dbre_temp_file)
-    if (exists(".dbre_json_output")) rm(.dbre_json_output)
-
-    invisible(NULL)
-}, error = function(e) {
-    # Silent error - write empty array to file
-    writeLines("[]", "${tempFilePathR}")
-    invisible(NULL)
-})
-  `.trim();
+  // Generate R code to discover all DuckDB connections
+  const rCode = RCodeTemplates.discoverConnections(tempFilePathR);
 
   await positronApi.runtime.executeCode('r', rCode, false, false, 'silent' as any, undefined, {});
 
