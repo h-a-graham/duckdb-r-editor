@@ -12,7 +12,7 @@ import { tryAcquirePositronApi } from '@posit-dev/positron';
 import { RConnectionInfo } from './types';
 import { isValidExtensionName, isValidConnectionName } from './utils/validation';
 import { RCodeExecutor } from './utils/rCodeExecutor';
-import { EXTENSION_ID, OUTPUT_CHANNEL_NAME, TIMING, R_TEMP_VAR_PREFIX } from './constants';
+import { EXTENSION_ID, OUTPUT_CHANNEL_NAME, TIMING } from './constants';
 import { getErrorMessage, isErrorType } from './utils/errorHandler';
 import { RCodeTemplates } from './utils/rCodeTemplates';
 
@@ -171,8 +171,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
         // Prioritize "con" at the top
         connections.sort((a, b) => {
-          if (a.name === 'con') return -1;
-          if (b.name === 'con') return 1;
+          if (a.name === 'con') {
+            return -1;
+          }
+          if (b.name === 'con') {
+            return 1;
+          }
           return a.name.localeCompare(b.name);
         });
 
@@ -373,7 +377,9 @@ async function discoverRConnections(): Promise<RConnectionInfo[]> {
     // Try to cleanup temp file even on error
     try {
       await vscode.workspace.fs.delete(fileUri);
-    } catch {}
+    } catch {
+      // Ignore cleanup errors
+    }
 
     // Re-throw if it's our "no connections" error
     if (error.message === 'No DuckDB connections found in R session') {

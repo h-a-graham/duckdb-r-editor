@@ -161,7 +161,7 @@ export class SQLStringDetector {
      */
     private static findDBIFunctionContext(document: vscode.TextDocument, position: vscode.Position): string | null {
         // Look backwards from the string position to find function call
-        let currentLine = position.line;
+        const currentLine = position.line;
         let searchText = '';
         const startLine = Math.max(0, currentLine - PARSING_LIMITS.CONTEXT_LINE_LOOKBACK);
 

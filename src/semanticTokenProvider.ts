@@ -413,7 +413,9 @@ export class SQLSemanticTokenProvider implements vscode.DocumentSemanticTokensPr
             // Comments (-- style)
             if (char === '-' && sql[i + 1] === '-') {
                 let commentEnd = sql.indexOf('\n', i);
-                if (commentEnd === -1) commentEnd = sql.length;
+                if (commentEnd === -1) {
+                    commentEnd = sql.length;
+                }
                 tokens.push({ type: 'comment', text: sql.substring(i, commentEnd), offset: i });
                 i = commentEnd;
                 continue;
@@ -452,7 +454,9 @@ export class SQLSemanticTokenProvider implements vscode.DocumentSemanticTokensPr
 
                 // Check if followed by '(' for function detection
                 let k = j;
-                while (k < sql.length && /\s/.test(sql[k])) k++;
+                while (k < sql.length && /\s/.test(sql[k])) {
+                    k++;
+                }
                 const isFunction = k < sql.length && sql[k] === '(';
 
                 tokens.push({
@@ -465,7 +469,7 @@ export class SQLSemanticTokenProvider implements vscode.DocumentSemanticTokensPr
             }
 
             // Operators
-            if (/[=<>!+\-*\/%|]/.test(char)) {
+            if (/[=<>!+\-*/%|]/.test(char)) {
                 let j = i + 1;
                 while (j < sql.length && /[=<>!|]/.test(sql[j])) {
                     j++;

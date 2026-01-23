@@ -154,7 +154,9 @@ export class DuckDBFunctionProvider implements vscode.Disposable {
 
         for (const rFunc of rFunctions) {
             const funcName = rFunc.function_name?.toLowerCase();
-            if (!funcName) continue;
+            if (!funcName) {
+                continue;
+            }
 
             // Convert R function to DuckDBFunction format
             this.functions.set(funcName, {
