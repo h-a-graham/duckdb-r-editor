@@ -177,10 +177,6 @@ This extension provides:
 
 ------------------------------------------------------------------------
 
-## License
-
-MIT
-
 ## Acknowledgments
 
 - **DuckDB** - Analytical database
