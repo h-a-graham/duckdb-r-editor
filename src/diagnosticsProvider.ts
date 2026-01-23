@@ -44,7 +44,8 @@ export class SQLDiagnosticsProvider implements vscode.CodeActionProvider {
             const matchPosition = document.positionAt(match.index);
 
             // Look for opening quote after the function call (within a few lines)
-            for (let offset = 0; offset <= 5 && matchPosition.line + offset < document.lineCount; offset++) {
+            // Use labeled break to exit both loops when first quote is found
+            searchLoop: for (let offset = 0; offset <= 5 && matchPosition.line + offset < document.lineCount; offset++) {
                 const checkLine = document.lineAt(matchPosition.line + offset);
                 const checkText = checkLine.text;
 
@@ -59,8 +60,7 @@ export class SQLDiagnosticsProvider implements vscode.CodeActionProvider {
                         this.checkAndValidateSQLString(document, testPos, processedRanges, diagnostics);
 
                         // Only check the first quote we find after this function
-                        offset = 999; // Break outer loop
-                        break;
+                        break searchLoop;
                     }
                 }
             }
