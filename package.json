@@ -67,6 +67,41 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically refresh schema when R code references the connection object. Keeps autocomplete in sync with database changes without manual refresh commands."
+        },
+        "duckdb-r-editor.enableSQLFormatting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable SQL formatting in R strings. Use the 'Format SQL in R String' command to format SQL code within R string literals."
+        },
+        "duckdb-r-editor.sqlFormattingStyle": {
+          "type": "string",
+          "enum": [
+            "standard",
+            "tabularLeft",
+            "tabularRight"
+          ],
+          "default": "standard",
+          "description": "SQL formatting style. 'standard': traditional formatting, 'tabularLeft': align keywords to the left, 'tabularRight': align keywords to the right.",
+          "enumDescriptions": [
+            "Traditional SQL formatting with standard indentation",
+            "Tabular format with keywords aligned to the left",
+            "Tabular format with keywords aligned to the right"
+          ]
+        },
+        "duckdb-r-editor.sqlKeywordCase": {
+          "type": "string",
+          "enum": [
+            "preserve",
+            "upper",
+            "lower"
+          ],
+          "default": "preserve",
+          "description": "Transform SQL keyword casing. 'preserve': keep original case, 'upper': convert to UPPERCASE, 'lower': convert to lowercase.",
+          "enumDescriptions": [
+            "Keep original keyword casing",
+            "Convert keywords to UPPERCASE",
+            "Convert keywords to lowercase"
+          ]
         }
       }
     },
@@ -86,6 +121,10 @@
       {
         "command": "duckdb-r-editor.loadExtension",
         "title": "DuckDB R Editor: Load DuckDB Extension (One-Time)"
+      },
+      {
+        "command": "duckdb-r-editor.formatSQL",
+        "title": "DuckDB R Editor: Format SQL in R String"
       }
     ]
   },
@@ -114,6 +153,7 @@
   },
   "dependencies": {
     "@posit-dev/positron": "^0.2.2",
-    "duckdb": "^0.10.0"
+    "duckdb": "^0.10.0",
+    "sql-formatter": "^15.7.0"
   }
 }

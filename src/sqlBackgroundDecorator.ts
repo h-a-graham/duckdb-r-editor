@@ -159,6 +159,7 @@ export class SQLBackgroundDecorator implements vscode.Disposable {
             continue;
           }
 
+          // Check position after the quote (inside string content)
           const position = new vscode.Position(lineNum, charPos + 1);
           const context = SQLStringDetector.isInsideSQLString(document, position);
 

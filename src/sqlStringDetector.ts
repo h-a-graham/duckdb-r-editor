@@ -106,9 +106,17 @@ export class SQLStringDetector {
 
             for (let i = startChar; i < lineText.length; i++) {
                 const char = lineText[i];
+                const nextChar = i < lineText.length - 1 ? lineText[i + 1] : '';
+
                 if (char === quoteChar) {
-                    // Check if it's escaped
+                    // Check if it's backslash-escaped
                     if (i > 0 && lineText[i - 1] === '\\') {
+                        continue;
+                    }
+                    // Check if it's R-style doubled-quote escaped (e.g., "" or '')
+                    if (nextChar === quoteChar) {
+                        // This is an escaped quote, skip both characters
+                        i++; // Skip the next quote character
                         continue;
                     }
                     // Check if this quote is inside a comment

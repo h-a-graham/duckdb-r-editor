@@ -94,8 +94,8 @@ export const PARSING_LIMITS = {
     MAX_PAREN_SEARCH_DISTANCE: 1000,
     /** Maximum function call length in characters (50KB) */
     MAX_FUNCTION_CALL_LENGTH: 50_000,
-    /** Number of lines to look back for function context */
-    CONTEXT_LINE_LOOKBACK: 10,
+    /** Number of lines to look back for function context (handles large SQL queries) */
+    CONTEXT_LINE_LOOKBACK: 100,
     /** Cache expiry time in milliseconds */
     CACHE_EXPIRY_MS: 5_000,
     /** Maximum buffer size for CLI execution (10MB) */

@@ -15,6 +15,7 @@ import { RCodeExecutor } from './utils/rCodeExecutor';
 import { EXTENSION_ID, OUTPUT_CHANNEL_NAME, TIMING } from './constants';
 import { getErrorMessage, isErrorType } from './utils/errorHandler';
 import { RCodeTemplates } from './utils/rCodeTemplates';
+import { SQLFormatter } from './utils/sqlFormatter';
 
 // Module-level state
 let schemaProvider: PositronSchemaProvider | undefined;
@@ -278,6 +279,24 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const formatSQLCommand = vscode.commands.registerCommand(
+    'duckdb-r-editor.formatSQL',
+    async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        vscode.window.showWarningMessage('No active text editor');
+        return;
+      }
+
+      if (editor.document.languageId !== 'r') {
+        vscode.window.showWarningMessage('SQL formatting is only available in R files');
+        return;
+      }
+
+      await SQLFormatter.formatSQLAtCursor(editor.document, editor.selection.active);
+    }
+  );
+
   // Register diagnostic provider
   context.subscriptions.push(
     vscode.languages.registerCodeActionsProvider(
@@ -315,7 +334,8 @@ export async function activate(context: vscode.ExtensionContext) {
     connectCommand,
     disconnectCommand,
     refreshSchemaCommand,
-    loadExtensionCommand
+    loadExtensionCommand,
+    formatSQLCommand
   );
 
   // Setup auto-refresh on code execution
