@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { SQLStringDetector } from './sqlStringDetector';
 import { EXTENSION_ID, CONFIG_KEYS } from './constants';
+import { SQLRegionFinder } from './utils/sqlRegionFinder';
 
 /**
  * Provides background color decorations for SQL strings in R code
@@ -134,6 +135,7 @@ export class SQLBackgroundDecorator implements vscode.Disposable {
 
   /**
    * Find all SQL strings in document and apply decorations
+   * Uses shared SQLRegionFinder for consistency with semantic highlighting
    */
   private decorateEditor(editor: vscode.TextEditor): void {
     if (!this.decorationType) {
@@ -143,78 +145,52 @@ export class SQLBackgroundDecorator implements vscode.Disposable {
 
     const document = editor.document;
     const sqlRanges: vscode.Range[] = [];
-    const processedRanges = new Set<string>();
 
-    // Scan entire document for SQL strings
-    for (let lineNum = 0; lineNum < document.lineCount; lineNum++) {
-      const line = document.lineAt(lineNum);
-      const lineText = line.text;
+    // Find all string ranges in SQL functions using shared utility
+    const stringRanges = SQLRegionFinder.findSQLFunctionStrings(document);
 
-      // Look for quote characters that might start SQL strings
-      for (let charPos = 0; charPos < lineText.length; charPos++) {
-        const char = lineText[charPos];
-        if (char === '"' || char === "'" || char === '`') {
-          // Check if escaped
-          if (charPos > 0 && lineText[charPos - 1] === '\\') {
-            continue;
+    // Validate and create decorations for each string
+    for (const stringRange of stringRanges) {
+      // IMPORTANT: Use SQLStringDetector to verify this is actually a SQL string
+      // This filters out named arguments like col_name = "value"
+      const sqlContext = SQLStringDetector.isInsideSQLString(document, stringRange.start);
+      if (!sqlContext) {
+        continue; // Not a SQL string, skip it
+      }
+
+      // For multi-line strings, create per-line decorations to avoid highlighting leading whitespace
+      if (stringRange.start.line === stringRange.end.line) {
+        // Single line - exclude quotes, just the content
+        sqlRanges.push(stringRange);
+      } else {
+        // Multi-line - create one range per line, trimming leading whitespace
+        for (let line = stringRange.start.line; line <= stringRange.end.line; line++) {
+          const lineText = document.lineAt(line).text;
+          let startChar: number;
+          let endChar: number;
+
+          if (line === stringRange.start.line) {
+            // First line: start after opening quote
+            startChar = stringRange.start.character;
+            endChar = lineText.length;
+          } else if (line === stringRange.end.line) {
+            // Last line: find first non-whitespace character, end before closing quote
+            const trimmedStart = lineText.search(/\S/);
+            startChar = trimmedStart >= 0 ? trimmedStart : 0;
+            endChar = stringRange.end.character;
+          } else {
+            // Middle line: trim leading whitespace, go to end of line
+            const trimmedStart = lineText.search(/\S/);
+            startChar = trimmedStart >= 0 ? trimmedStart : 0;
+            endChar = lineText.length;
           }
 
-          const position = new vscode.Position(lineNum, charPos + 1);
-          const context = SQLStringDetector.isInsideSQLString(document, position);
-
-          if (context) {
-            // Create unique key for this range to avoid duplicates
-            const rangeKey = `${context.range.start.line}:${context.range.start.character}-${context.range.end.line}:${context.range.end.character}`;
-
-            if (!processedRanges.has(rangeKey)) {
-              processedRanges.add(rangeKey);
-
-              // For multi-line strings, create per-line decorations to avoid highlighting leading whitespace
-              if (context.range.start.line === context.range.end.line) {
-                // Single line - exclude quotes, just the content
-                sqlRanges.push(context.range);
-              } else {
-                // Multi-line - create one range per line, trimming leading whitespace
-                for (let line = context.range.start.line; line <= context.range.end.line; line++) {
-                  const lineText = document.lineAt(line).text;
-                  let startChar: number;
-                  let endChar: number;
-
-                  if (line === context.range.start.line) {
-                    // First line: start after opening quote
-                    startChar = context.range.start.character;
-                    endChar = lineText.length;
-                  } else if (line === context.range.end.line) {
-                    // Last line: find first non-whitespace character, end before closing quote
-                    const trimmedStart = lineText.search(/\S/);
-                    startChar = trimmedStart >= 0 ? trimmedStart : 0;
-                    endChar = context.range.end.character;
-                  } else {
-                    // Middle line: trim leading whitespace, go to end of line
-                    const trimmedStart = lineText.search(/\S/);
-                    startChar = trimmedStart >= 0 ? trimmedStart : 0;
-                    endChar = lineText.length;
-                  }
-
-                  // Only add range if there's actual content
-                  if (startChar < endChar) {
-                    sqlRanges.push(new vscode.Range(
-                      new vscode.Position(line, startChar),
-                      new vscode.Position(line, endChar)
-                    ));
-                  }
-                }
-              }
-            }
-
-            // Skip ahead to avoid re-processing this string
-            if (context.range.end.line === lineNum) {
-              charPos = context.range.end.character;
-            } else {
-              // Multi-line string, jump to end line
-              lineNum = context.range.end.line;
-              break;
-            }
+          // Only add range if there's actual content
+          if (startChar < endChar) {
+            sqlRanges.push(new vscode.Range(
+              new vscode.Position(line, startChar),
+              new vscode.Position(line, endChar)
+            ));
           }
         }
       }
@@ -223,6 +199,7 @@ export class SQLBackgroundDecorator implements vscode.Disposable {
     // Apply decorations
     editor.setDecorations(this.decorationType, sqlRanges);
   }
+
 
   /**
    * Clean up resources

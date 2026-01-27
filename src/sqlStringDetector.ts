@@ -42,8 +42,49 @@ export class SQLStringDetector {
             return null;
         }
 
-        const query = document.getText(stringRange);
         const isGlueString = this.isGlueFunction(functionContext);
+
+        // Filter out named arguments: check if there's an = sign before the opening quote
+        // This prevents highlighting strings like col_name = "id" or .con = con
+        const openQuotePos = new vscode.Position(stringRange.start.line, stringRange.start.character - 1);
+
+        // Look back to check for named argument pattern (name =)
+        let lookbackStart: vscode.Position;
+        if (stringRange.start.character >= 50) {
+            // If we have enough characters on this line, just look back on same line
+            lookbackStart = new vscode.Position(stringRange.start.line, stringRange.start.character - 50);
+        } else if (stringRange.start.line > 0) {
+            // Look back to previous line
+            const prevLine = document.lineAt(stringRange.start.line - 1);
+            const remainingLookback = 50 - stringRange.start.character;
+            lookbackStart = new vscode.Position(
+                stringRange.start.line - 1,
+                Math.max(0, prevLine.text.length - remainingLookback)
+            );
+        } else {
+            // First line, just look back as far as we can
+            lookbackStart = new vscode.Position(0, 0);
+        }
+
+        const textBeforeQuote = document.getText(new vscode.Range(lookbackStart, openQuotePos)).trim();
+
+        // Check if this looks like a named argument
+        if (textBeforeQuote.endsWith('=')) {
+            // This is a named argument
+            if (isGlueString) {
+                // For glue functions, reject all named arguments
+                // This includes .con = conn, col_name = "id", etc.
+                return null;
+            } else {
+                // For DBI functions, only accept if it's specifically "statement ="
+                // Reject other named args like conn =, params =, etc.
+                if (!/statement\s*=$/i.test(textBeforeQuote)) {
+                    return null;
+                }
+            }
+        }
+
+        const query = document.getText(stringRange);
 
         return {
             query: this.cleanSQLString(query),
@@ -106,9 +147,17 @@ export class SQLStringDetector {
 
             for (let i = startChar; i < lineText.length; i++) {
                 const char = lineText[i];
+                const nextChar = i < lineText.length - 1 ? lineText[i + 1] : '';
+
                 if (char === quoteChar) {
-                    // Check if it's escaped
+                    // Check if it's backslash-escaped
                     if (i > 0 && lineText[i - 1] === '\\') {
+                        continue;
+                    }
+                    // Check if it's R-style doubled-quote escaped (e.g., "" or '')
+                    if (nextChar === quoteChar) {
+                        // This is an escaped quote, skip both characters
+                        i++; // Skip the next quote character
                         continue;
                     }
                     // Check if this quote is inside a comment
@@ -144,10 +193,10 @@ export class SQLStringDetector {
         }
 
         // IMPORTANT: Validate that the original position is actually within this string range
-        // Position must be >= start and < end (content is between quotes, not including closing quote)
-        if (position.isBefore(startPos) || position.isAfterOrEqual(endPos)) {
-            // Position is outside the string content - probably found a closing quote and treated it as opening
-            // OR position is at/after the closing quote position
+        // Position must be >= start and <= end
+        // Allow position AT endPos because user might be typing right at the closing quote to expand the string
+        if (position.isBefore(startPos) || position.isAfter(endPos)) {
+            // Position is outside the string content
             return null;
         }
 
