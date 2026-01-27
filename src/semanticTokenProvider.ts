@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import { DocumentCache, CachedSQLRegion } from './documentCache';
-import { PARSING_LIMITS } from './types';
 import { SQL_KEYWORD_TOKENS, SQL_FUNCTION_TOKENS } from './sqlKeywords';
 import { SQLStringDetector } from './sqlStringDetector';
 import { SQLRegionFinder } from './utils/sqlRegionFinder';
